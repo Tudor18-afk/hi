@@ -26,4 +26,4 @@ Click **SURVIVE**. The mouse locks so you can look around.
 | **Esc** | Pause |
 | **Phone** | Left pad move, right pad look / fire |
 
-Walkers, runners, spitters, and brutes scale each night. Loot health, ammo, stims, and extra guns in the streets.
+Walkers, runners, spitters, and brutes only chase once they **see** you (about 7–11 tiles, with line of sight). They walk toward you instead of sliding off your aim. Loot health, ammo, stims, and extra guns in the streets.
