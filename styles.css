@@ -24,9 +24,7 @@ html, body {
   background: #0a0c09;
 }
 
-#grain,
-#vignette,
-#hurt {
+#grain, #vignette, #hurt {
   position: fixed;
   inset: 0;
   pointer-events: none;
@@ -39,11 +37,11 @@ html, body {
 }
 
 #vignette {
-  background: radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,.55) 100%);
+  background: radial-gradient(ellipse at center, transparent 42%, rgba(0,0,0,.62) 100%);
 }
 
 #hurt {
-  background: radial-gradient(ellipse at center, transparent 35%, rgba(120, 0, 0, .55) 100%);
+  background: radial-gradient(ellipse at center, transparent 30%, rgba(120, 0, 0, .6) 100%);
   opacity: 0;
   transition: opacity 80ms linear;
 }
@@ -53,6 +51,8 @@ body.playing { cursor: none; }
 
 #crosshair {
   position: fixed;
+  left: 50%;
+  top: 50%;
   width: 22px;
   height: 22px;
   margin: -11px 0 0 -11px;
@@ -67,8 +67,8 @@ body.playing { cursor: none; }
   box-shadow: 0 0 6px #000;
 }
 
-#crosshair .ch-h { left: 4px; right: 4px; top: 10px; height: 2px; }
-#crosshair .ch-v { top: 4px; bottom: 4px; left: 10px; width: 2px; }
+#crosshair .ch-h { left: 3px; right: 3px; top: 10px; height: 2px; }
+#crosshair .ch-v { top: 3px; bottom: 3px; left: 10px; width: 2px; }
 #crosshair .ch-dot {
   position: absolute;
   left: 10px;
@@ -104,9 +104,7 @@ body.playing { cursor: none; }
   text-align: right;
 }
 
-.meter-label,
-.stat .k,
-.eyebrow {
+.meter-label, .stat .k, .eyebrow {
   letter-spacing: 0.28em;
   font-size: 10px;
   color: var(--amber);
@@ -194,7 +192,7 @@ body.playing { cursor: none; }
 
 #pickup-toast {
   position: absolute;
-  bottom: 120px;
+  bottom: 160px;
   left: 50%;
   transform: translateX(-50%);
   color: var(--amber);
@@ -224,15 +222,14 @@ body.playing { cursor: none; }
   white-space: nowrap;
 }
 
-#menu,
-.overlay {
+#menu, .overlay {
   position: fixed;
   inset: 0;
   z-index: 8;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(180deg, rgba(5,6,5,.35), rgba(5,6,5,.82));
+  background: linear-gradient(180deg, rgba(5,6,5,.28), rgba(5,6,5,.84));
 }
 
 .menu-inner, .card {
