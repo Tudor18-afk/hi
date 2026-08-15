@@ -56,6 +56,7 @@
   let hintT = 8;
   let audio;
   let ambientGain;
+  const stick = { x: 0, y: 0 };
 
   const G = {
     seed: 1,
@@ -113,10 +114,10 @@
       else if (state === "pause") resumeGame();
     }
     if (state === "play") {
-      if (e.code === "Digit1") setWeapon(0);
-      if (e.code === "Digit2") setWeapon(1);
-      if (e.code === "Digit3") setWeapon(2);
-      if (e.code === "Digit4") setWeapon(3);
+      if (e.code === "Digit1") setWeapon(0, true);
+      if (e.code === "Digit2") setWeapon(1, true);
+      if (e.code === "Digit3") setWeapon(2, true);
+      if (e.code === "Digit4") setWeapon(3, true);
       if (e.code === "KeyR") startReload();
       if (e.code === "Space") { e.preventDefault(); melee(); }
     }
@@ -132,7 +133,8 @@
     if (state !== "play" || !G.player) return;
     e.preventDefault();
     const dir = e.deltaY > 0 ? 1 : -1;
-    setWeapon((G.player.wep + dir + WEAPONS.length) % WEAPONS.length);
+    const next = (G.player.wep + dir + WEAPONS.length) % WEAPONS.length;
+    if (G.player.owned[next]) setWeapon(next);
   }, { passive: false });
   canvas.addEventListener("contextmenu", (e) => e.preventDefault());
 
@@ -142,13 +144,24 @@
   $("btn-again").onclick = () => startRun();
   $("btn-menu").onclick = () => goMenu();
 
+  window.addEventListener("error", (e) => {
+    const box = $("boot-error");
+    if (!box) return;
+    box.textContent = (e.message || "Game error") + (e.lineno ? " (line " + e.lineno + ")" : "");
+    box.classList.remove("hidden");
+  });
+
+  bindTouch();
+
   function bestScore() {
     try { return JSON.parse(localStorage.getItem("nodawn-best") || "null"); }
     catch { return null; }
   }
   function saveBest(rec) {
-    const prev = bestScore();
-    if (!prev || rec.score > prev.score) localStorage.setItem("nodawn-best", JSON.stringify(rec));
+    try {
+      const prev = bestScore();
+      if (!prev || rec.score > prev.score) localStorage.setItem("nodawn-best", JSON.stringify(rec));
+    } catch (_) { /* ignore */ }
   }
   function showBest() {
     const b = bestScore();
@@ -157,45 +170,57 @@
   showBest();
 
   function ensureAudio() {
-    if (audio) return;
-    const AC = window.AudioContext || window.webkitAudioContext;
-    if (!AC) return;
-    audio = new AC();
-    ambientGain = audio.createGain();
-    ambientGain.gain.value = 0.04;
-    ambientGain.connect(audio.destination);
-    const osc1 = audio.createOscillator();
-    const osc2 = audio.createOscillator();
-    const f = audio.createBiquadFilter();
-    osc1.type = "sawtooth"; osc2.type = "sine";
-    osc1.frequency.value = 46; osc2.frequency.value = 49.2;
-    f.type = "lowpass"; f.frequency.value = 180;
-    osc1.connect(f); osc2.connect(f); f.connect(ambientGain);
-    osc1.start(); osc2.start();
+    if (audio) {
+      if (audio.resume) audio.resume().catch(() => {});
+      return;
+    }
+    try {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return;
+      audio = new AC();
+      ambientGain = audio.createGain();
+      ambientGain.gain.value = 0.04;
+      ambientGain.connect(audio.destination);
+      const osc1 = audio.createOscillator();
+      const osc2 = audio.createOscillator();
+      const f = audio.createBiquadFilter();
+      osc1.type = "sawtooth"; osc2.type = "sine";
+      osc1.frequency.value = 46; osc2.frequency.value = 49.2;
+      f.type = "lowpass"; f.frequency.value = 180;
+      osc1.connect(f); osc2.connect(f); f.connect(ambientGain);
+      osc1.start(); osc2.start();
+      if (audio.resume) audio.resume().catch(() => {});
+    } catch (_) {
+      audio = null;
+    }
   }
   function beep(freq, dur, type, vol, slide) {
     if (!audio) return;
-    const o = audio.createOscillator();
-    const g = audio.createGain();
-    o.type = type || "square";
-    o.frequency.value = freq;
-    if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(40, slide), audio.currentTime + dur);
-    g.gain.value = vol || 0.08;
-    g.gain.exponentialRampToValueAtTime(0.001, audio.currentTime + dur);
-    o.connect(g); g.connect(audio.destination);
-    o.start(); o.stop(audio.currentTime + dur);
+    try {
+      const o = audio.createOscillator();
+      const g = audio.createGain();
+      o.type = type || "square";
+      o.frequency.value = freq;
+      if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(40, slide), audio.currentTime + dur);
+      g.gain.value = vol || 0.08;
+      g.gain.exponentialRampToValueAtTime(0.001, audio.currentTime + dur);
+      o.connect(g); g.connect(audio.destination);
+      o.start(); o.stop(audio.currentTime + dur);
+    } catch (_) { /* ignore */ }
   }
   function noiseBurst(dur, vol, hp) {
     if (!audio) return;
-    const n = audio.createBuffer(1, audio.sampleRate * dur, audio.sampleRate);
-    const d = n.getChannelData(0);
-    for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
-    const src = audio.createBufferSource(); src.buffer = n;
-    const f = audio.createBiquadFilter(); f.type = "highpass"; f.frequency.value = hp || 800;
-    const g = audio.createGain(); g.gain.value = vol || 0.12;
-    g.gain.exponentialRampToValueAtTime(0.001, audio.currentTime + dur);
-    src.connect(f); f.connect(g); g.connect(audio.destination);
-    src.start();
+    try {
+      const n = audio.createBuffer(1, audio.sampleRate * dur, audio.sampleRate);
+      const d = n.getChannelData(0);
+      for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+      const src = audio.createBufferSource(); src.buffer = n;
+      const f = audio.createBiquadFilter(); f.type = "highpass"; f.frequency.value = hp || 800;
+      const g = audio.createGain(); g.gain.value = vol || 0.12;
+      g.gain.exponentialRampToValueAtTime(0.001, audio.currentTime + dur);
+      src.connect(f); f.connect(g); g.connect(audio.destination);
+      src.start();
+    } catch (_) { /* ignore */ }
   }
   function sfxShoot() { noiseBurst(0.08, 0.16, 900); beep(180, 0.07, "square", 0.05, 70); }
   function sfxHit() { beep(90, 0.08, "sawtooth", 0.07, 40); }
@@ -345,10 +370,10 @@
     };
   }
 
-  function setWeapon(i) {
+  function setWeapon(i, announce) {
     const p = G.player;
     if (!p || !p.owned[i]) {
-      toast("WEAPON LOCKED");
+      if (announce) toast("WEAPON LOCKED");
       return;
     }
     if (p.wep === i) return;
@@ -517,6 +542,17 @@
   }
 
   function startRun() {
+    try {
+      beginRun();
+    } catch (err) {
+      const box = $("boot-error");
+      if (box) {
+        box.textContent = (err && err.message) || String(err);
+        box.classList.remove("hidden");
+      }
+    }
+  }
+  function beginRun() {
     ensureAudio();
     G.seed = (Date.now() % 1e9) | 0;
     G.rng = mulberry(G.seed);
@@ -526,6 +562,8 @@
     G.wave = 1; G.kills = 0; G.time = 0; G.clearTimer = 0;
     planWave(1);
     for (let i = 0; i < 6; i++) dropLoot(G.player.x + rand(-180, 180), G.player.y + rand(-180, 180), i === 0);
+    G.cam.x = G.player.x;
+    G.cam.y = G.player.y;
     state = "play";
     hintT = 8;
     ui.menu.classList.add("hidden");
@@ -587,6 +625,8 @@
     if (keys.KeyS || keys.ArrowDown) iy += 1;
     if (keys.KeyA || keys.ArrowLeft) ix -= 1;
     if (keys.KeyD || keys.ArrowRight) ix += 1;
+    ix += stick.x;
+    iy += stick.y;
     const len = Math.hypot(ix, iy) || 1;
     ix /= len; iy /= len;
     const sprint = (keys.ShiftLeft || keys.ShiftRight) && p.stam > 5 && (ix || iy);
@@ -937,7 +977,7 @@
 
   function drawLights() {
     ltx.clearRect(0, 0, W, H);
-    ltx.fillStyle = "rgba(4, 6, 5, 0.82)";
+    ltx.fillStyle = "rgba(6, 8, 6, 0.58)";
     ltx.fillRect(0, 0, W, H);
     ltx.globalCompositeOperation = "destination-out";
     const p = G.player;
@@ -1022,7 +1062,74 @@
   }
   function dtMenu() { return 0.016; }
 
+  function bindTouch() {
+    const movePad = $("move-pad");
+    const firePad = $("fire-pad");
+    const touchUI = $("touch");
+    if (!movePad || !firePad || !touchUI) return;
+    const coarse = window.matchMedia && window.matchMedia("(pointer: coarse)").matches;
+    if (coarse || "ontouchstart" in window) touchUI.classList.remove("hidden");
+
+    function padVector(el, ev) {
+      const t = ev.changedTouches ? ev.changedTouches[0] : ev;
+      const r = el.getBoundingClientRect();
+      const x = (t.clientX - (r.left + r.width / 2)) / (r.width * 0.5);
+      const y = (t.clientY - (r.top + r.height / 2)) / (r.height * 0.5);
+      return { x: clamp(x, -1, 1), y: clamp(y, -1, 1), cx: t.clientX, cy: t.clientY };
+    }
+    function onMoveStart(ev) {
+      ev.preventDefault();
+      const v = padVector(movePad, ev);
+      stick.x = v.x; stick.y = v.y;
+    }
+    function onMoveEnd(ev) {
+      ev.preventDefault();
+      stick.x = 0; stick.y = 0;
+    }
+    function onFireStart(ev) {
+      ev.preventDefault();
+      mouse.down = true;
+      const v = padVector(firePad, ev);
+      mouse.x = W / 2 + v.x * 220;
+      mouse.y = H / 2 + v.y * 220;
+    }
+    function onFireMove(ev) {
+      ev.preventDefault();
+      const v = padVector(firePad, ev);
+      mouse.x = W / 2 + v.x * 220;
+      mouse.y = H / 2 + v.y * 220;
+    }
+    function onFireEnd(ev) {
+      ev.preventDefault();
+      mouse.down = false;
+    }
+    for (const [el, start, move, end] of [
+      [movePad, onMoveStart, onMoveStart, onMoveEnd],
+      [firePad, onFireStart, onFireMove, onFireEnd],
+    ]) {
+      el.addEventListener("touchstart", start, { passive: false });
+      el.addEventListener("touchmove", move, { passive: false });
+      el.addEventListener("touchend", end, { passive: false });
+      el.addEventListener("touchcancel", end, { passive: false });
+    }
+  }
+
   function frame(now) {
+    try {
+      tick(now);
+    } catch (err) {
+      const box = $("boot-error");
+      if (box) {
+        box.textContent = (err && err.message) || String(err);
+        box.classList.remove("hidden");
+      }
+      requestAnimationFrame(frame);
+      return;
+    }
+    requestAnimationFrame(frame);
+  }
+
+  function tick(now) {
     const dt = Math.min(0.033, (now - last) / 1000 || 0.016);
     last = now;
     shake = Math.max(0, shake - dt * 18);
@@ -1060,8 +1167,6 @@
     drawMinimap();
     ctx.fillStyle = "rgba(18, 8, 0, 0.12)";
     ctx.fillRect(0, 0, W, H);
-
-    requestAnimationFrame(frame);
   }
 
   requestAnimationFrame(frame);

@@ -319,6 +319,53 @@ kbd {
 .dead-stats div { color: #cfc3b0; }
 .dead-stats b { display: block; color: #f4efe4; font-size: 22px; font-weight: 600; }
 
+#boot-error {
+  position: fixed;
+  left: 16px;
+  right: 16px;
+  bottom: 16px;
+  z-index: 20;
+  background: #4a1212;
+  color: #f6efe4;
+  border: 1px solid #c94a4a;
+  padding: 10px 14px;
+  font-size: 13px;
+}
+
+#touch {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 6;
+}
+
+.pad {
+  pointer-events: auto;
+  position: absolute;
+  bottom: 28px;
+  width: 128px;
+  height: 128px;
+  border-radius: 50%;
+  border: 2px solid var(--line);
+  background: rgba(8, 10, 8, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--amber);
+  letter-spacing: 0.18em;
+  font-size: 11px;
+}
+
+#move-pad { left: 24px; }
+#fire-pad { right: 24px; }
+.pad .knob {
+  position: absolute;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: rgba(232, 184, 109, 0.28);
+}
+
 .hidden { display: none !important; }
 
 @media (max-width: 720px) {

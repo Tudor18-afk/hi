@@ -2,17 +2,15 @@
 
 A top-down zombie survival game. Last as many nights as you can in the Ashton outbreak.
 
-## Play
+## Play in your browser
 
-Open `index.html` in a browser (Chrome, Firefox, Edge, or Safari).
+GitHub’s file view only shows code. Use one of these:
 
-Or from this folder:
+1. **Download** [`index.html`](https://github.com/Tudor18-afk/hi/blob/cursor/zombie-survival-game-ba78/index.html) and double-click it (Chrome, Firefox, Edge, or Safari).
+2. **Preview:** https://htmlpreview.github.io/?https://github.com/Tudor18-afk/hi/blob/cursor/zombie-survival-game-ba78/index.html
+3. **Local server:** `python3 -m http.server 8080` then open http://localhost:8080
 
-```bash
-python3 -m http.server 8080
-```
-
-Then visit [http://localhost:8080](http://localhost:8080).
+Click **SURVIVE**.
 
 ## Controls
 
@@ -26,13 +24,6 @@ Then visit [http://localhost:8080](http://localhost:8080).
 | **Space** | Melee bash |
 | **1–4** / scroll | Switch weapons |
 | **Esc** | Pause |
+| **Phone** | Left pad move, right pad aim / fire |
 
-## How to survive
-
-- Clear each **night** (wave). Zombies get faster and meaner.
-- Walkers are slow. Runners close the gap. Spitters shoot acid. Brutes soak bullets.
-- Loot crates for health, ammo, stims, and new guns (shotgun, SMG, rifle).
-- Buildings and wrecked cars block bullets and the horde. Use your flashlight cone.
-- Score is kills, time, nights survived, and leftover health. Best run is saved in the browser.
-
-Click **SURVIVE** on the title screen to start.
+Walkers, runners, spitters, and brutes scale each night. Loot health, ammo, stims, and extra guns. Best score is saved in the browser.
