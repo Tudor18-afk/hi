@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>No Dawn — Survive the Horde</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <canvas id="game" aria-label="No Dawn game view"></canvas>
+  <div id="grain"></div>
+  <div id="vignette"></div>
+  <div id="hurt"></div>
+
+  <div id="crosshair" class="hidden">
+    <span class="ch-h"></span>
+    <span class="ch-v"></span>
+    <span class="ch-dot"></span>
+  </div>
+
+  <div id="hud" class="hidden">
+    <div class="hud-left">
+      <div class="meter">
+        <div class="meter-label">VITALS</div>
+        <div class="bar health"><div id="health-fill" class="fill"></div></div>
+        <div class="bar stamina"><div id="stamina-fill" class="fill"></div></div>
+      </div>
+      <div class="weapon-panel">
+        <div id="weapon-name">PISTOL</div>
+        <div id="ammo-line"><span id="ammo-mag">12</span><span class="ammo-sep">/</span><span id="ammo-res">48</span></div>
+        <div id="reload-track"><div id="reload-fill"></div></div>
+      </div>
+    </div>
+    <div class="hud-right">
+      <div class="stat"><span class="k">NIGHT</span><span id="wave-num">1</span></div>
+      <div class="stat"><span class="k">KILLS</span><span id="kill-num">0</span></div>
+      <div class="stat"><span class="k">TIME</span><span id="time-num">00:00</span></div>
+    </div>
+    <div id="wave-banner"></div>
+    <div id="pickup-toast"></div>
+    <div id="hint">WASD move · Mouse aim · Click shoot · R reload · Shift sprint · Space melee · 1–4 weapons</div>
+  </div>
+
+  <div id="menu">
+    <div class="menu-inner">
+      <p class="eyebrow">ASHTON OUTBREAK — DAY 19</p>
+      <h1>NO DAWN</h1>
+      <p class="tag">The dead do not sleep. Neither can you.</p>
+      <button id="btn-start" type="button">SURVIVE</button>
+      <div class="controls">
+        <div><kbd>W A S D</kbd> Move</div>
+        <div><kbd>Mouse</kbd> Aim / Shoot</div>
+        <div><kbd>R</kbd> Reload · <kbd>Shift</kbd> Sprint</div>
+        <div><kbd>Space</kbd> Melee · <kbd>1–4</kbd> Weapons</div>
+        <div><kbd>Esc</kbd> Pause</div>
+      </div>
+      <div id="best-score" class="best"></div>
+    </div>
+  </div>
+
+  <div id="pause" class="overlay hidden">
+    <div class="card">
+      <h2>PAUSED</h2>
+      <p>The horde is still out there.</p>
+      <button id="btn-resume" type="button">RESUME</button>
+      <button id="btn-quit" type="button" class="ghost">GIVE UP</button>
+    </div>
+  </div>
+
+  <div id="dead" class="overlay hidden">
+    <div class="card">
+      <p class="eyebrow">YOU WERE OVERRUN</p>
+      <h2>NO DAWN</h2>
+      <div id="dead-stats" class="dead-stats"></div>
+      <button id="btn-again" type="button">TRY AGAIN</button>
+      <button id="btn-menu" type="button" class="ghost">MENU</button>
+    </div>
+  </div>
+
+  <script src="game.js"></script>
+</body>
+</html>
