@@ -52,6 +52,7 @@
       </div>
 
       <div id="score-chip"><b id="my-frags">0</b><span>FRAGS</span></div>
+      <div id="room-chip" class="hidden">ROOM <b id="room-code-hud">----</b></div>
       <div id="banner"></div>
       <div id="look-hint" class="hidden">Click the arena to capture mouse · or drag to look</div>
     </div>
@@ -103,24 +104,41 @@
     <div id="menu">
       <div class="menu-scan"></div>
       <div class="menu-inner">
-        <div class="eyebrow">LOCAL SIM · EIGHT HOSTILES</div>
+        <div class="eyebrow" id="menu-eyebrow">LOCAL OR ONLINE</div>
         <h1>NEXUS<span>ARENA</span></h1>
         <p class="tag">
-          A first-person deathmatch against AI operators who hunt, take cover,
-          and fight each other. Highest score wins.
+          Fight AI bots, other people, or both. Set bots to 0 for humans only.
         </p>
-        <button id="btn-start" type="button">PLAY</button>
+        <div class="mode-row">
+          <button type="button" class="mode on" id="mode-local">LOCAL</button>
+          <button type="button" class="mode" id="mode-online">ONLINE</button>
+        </div>
         <div class="settings">
+          <label>
+            <span>YOUR NAME</span>
+            <input id="player-name" type="text" maxlength="12" value="YOU" autocomplete="off" />
+          </label>
           <label>
             <span>MOUSE SENSITIVITY</span>
             <input id="sens" type="range" min="0.4" max="2.8" step="0.1" value="1.2" />
             <b id="sens-val">1.2</b>
           </label>
           <label>
-            <span>AI OPERATORS</span>
-            <input id="bots" type="range" min="4" max="8" step="1" value="8" />
+            <span>AI BOTS (0 = NONE)</span>
+            <input id="bots" type="range" min="0" max="8" step="1" value="8" />
             <b id="bots-val">8</b>
           </label>
+        </div>
+        <div id="local-actions">
+          <button id="btn-start" type="button">PLAY</button>
+        </div>
+        <div id="online-actions" class="hidden">
+          <div class="online-row">
+            <input id="room-code" type="text" maxlength="4" placeholder="CODE" autocomplete="off" />
+            <button id="btn-join" type="button">JOIN</button>
+          </div>
+          <button id="btn-create" type="button">CREATE ROOM</button>
+          <div id="net-status">Connecting is required for online play. Share the room code with friends on this same site.</div>
         </div>
         <div class="help">
           <div><kbd>WASD</kbd> move <kbd>SHIFT</kbd> sprint <kbd>SPACE</kbd> jump <kbd>C</kbd> crouch</div>

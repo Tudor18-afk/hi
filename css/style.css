@@ -249,6 +249,15 @@ canvas#view {
   letter-spacing: 0.22em;
   color: var(--muted);
 }
+#room-chip {
+  position: absolute;
+  left: 28px;
+  top: 56px;
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.18em;
+  color: var(--amber);
+}
 
 #banner {
   position: absolute;
@@ -488,11 +497,64 @@ button:hover { background: rgba(92, 225, 255, 0.22); }
 }
 .settings label span { grid-column: 1; }
 .settings label b { grid-column: 2; color: var(--text); }
-.settings input[type="range"] {
+.settings input[type="range"],
+.settings input[type="text"] {
   grid-column: 1 / -1;
   width: 100%;
   accent-color: var(--cyan);
 }
+.settings input[type="text"],
+#room-code {
+  background: rgba(8, 12, 18, 0.8);
+  border: 1px solid var(--line);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 16px;
+  letter-spacing: 0.2em;
+  padding: 10px 12px;
+  text-transform: uppercase;
+}
+.mode-row {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  margin-bottom: 8px;
+}
+button.mode {
+  padding: 10px 18px;
+  letter-spacing: 0.2em;
+  opacity: 0.55;
+}
+button.mode.on {
+  opacity: 1;
+  background: rgba(92, 225, 255, 0.22);
+}
+#local-actions, #online-actions {
+  margin-top: 22px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+.online-row {
+  display: flex;
+  gap: 8px;
+  width: min(420px, 90%);
+}
+#room-code {
+  flex: 1;
+  text-align: center;
+  letter-spacing: 0.4em;
+}
+#net-status {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  max-width: 420px;
+  line-height: 1.5;
+}
+#online-actions.hidden, #local-actions.hidden { display: none; }
 .help {
   margin-top: 28px;
   color: var(--muted);

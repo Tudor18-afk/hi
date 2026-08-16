@@ -1,5 +1,6 @@
 import * as THREE from "../vendor/three.module.min.js";
 import { GameAudio } from "./audio.js";
+import { Net } from "./net.js";
 
 const CFG = {
   world: 64,
@@ -640,6 +641,11 @@ class Game {
     this.mouseDown = false;
     this.sens = 1.2;
     this.botCount = 8;
+    this.online = false;
+    this.humans = [];
+    this.net = new Net();
+    this.net.onEvent = (msg) => this._onNet(msg);
+    this._netAcc = 0;
     this.running = false;
     this.paused = false;
     this.matchOver = false;
@@ -681,6 +687,7 @@ class Game {
 
     this.player = null;
     this.bots = [];
+    this.humans = [];
     this.fighters = [];
     this.pointerLocked = false;
     this.dragging = false;
@@ -736,6 +743,19 @@ class Game {
       this.botCount = parseInt(e.target.value, 10);
       $("bots-val").textContent = String(this.botCount);
     });
+    $("mode-local").addEventListener("click", () => this._setMode(false));
+    $("mode-online").addEventListener("click", () => this._setMode(true));
+    $("btn-create").addEventListener("click", (e) => {
+      e.preventDefault();
+      this._createRoom();
+    });
+    $("btn-join").addEventListener("click", (e) => {
+      e.preventDefault();
+      this._joinRoom();
+    });
+    $("room-code").addEventListener("keydown", (e) => {
+      if (e.key === "Enter") this._joinRoom();
+    });
     $("btn-start").addEventListener("click", (e) => {
       e.preventDefault();
       e.stopPropagation();
@@ -743,7 +763,8 @@ class Game {
     });
     $("btn-again").addEventListener("click", (e) => {
       e.preventDefault();
-      this.startMatch();
+      if (this.online && this.net.host) this.net.send({ t: "reset" });
+      this.startMatch({ keepOnline: this.online });
     });
     $("btn-resume").addEventListener("click", (e) => {
       e.preventDefault();
@@ -926,7 +947,216 @@ class Game {
     hint.classList.toggle("hidden", !show);
   }
 
-  startMatch() {
+  _playerName() {
+    const raw = ($("player-name") && $("player-name").value) || "YOU";
+    return raw.trim().toUpperCase().slice(0, 12) || "YOU";
+  }
+
+  _setMode(online) {
+    this.online = online;
+    $("mode-local").classList.toggle("on", !online);
+    $("mode-online").classList.toggle("on", online);
+    $("local-actions").classList.toggle("hidden", online);
+    $("online-actions").classList.toggle("hidden", !online);
+    $("menu-eyebrow").textContent = online ? "ONLINE DEATHMATCH" : "LOCAL MATCH";
+    if (online) {
+      $("net-status").textContent = "Create a room and share the 4-letter code. Friends must open this same site.";
+      this.net.connect();
+    }
+  }
+
+  _createRoom() {
+    $("net-status").textContent = "Creating room…";
+    this.net.create(this._playerName(), parseInt($("bots").value, 10));
+  }
+
+  _joinRoom() {
+    const code = ($("room-code").value || "").trim();
+    if (!code) {
+      $("net-status").textContent = "Enter a room code to join.";
+      return;
+    }
+    $("net-status").textContent = "Joining " + code.toUpperCase() + "…";
+    this.net.join(code, this._playerName());
+  }
+
+  _onNet(msg) {
+    if (msg.t === "err") {
+      $("net-status").textContent = msg.m || "Network error.";
+      return;
+    }
+    if (msg.t === "ok") {
+      $("net-status").textContent = "Room " + msg.code + " — share this code.";
+      $("room-code").value = msg.code;
+      this.startMatch({ online: true, netId: msg.id, players: msg.players, bots: msg.bots, host: msg.host });
+      return;
+    }
+    if (msg.t === "close" && this.online && this.running) {
+      $("net-status").textContent = "Disconnected from the room.";
+    }
+    if (!this.running) return;
+    if (msg.t === "join") this._addRemote(msg.id, msg.name, msg.color, false);
+    if (msg.t === "leave") this._removeRemote(msg.id);
+    if (msg.t === "host") this.net.host = !!msg.host;
+    if (msg.t === "st") this._applyPeerState(msg);
+    if (msg.t === "bst" && !this.net.host) this._applyBotStates(msg.bots || []);
+    if (msg.t === "shot") this._netShot(msg);
+    if (msg.t === "hit") this._netHit(msg);
+    if (msg.t === "reset") this.startMatch({ keepOnline: true });
+  }
+
+  _byId(id) {
+    return this.fighters.find((f) => f && f.id === id) || null;
+  }
+
+  _rebuildFighters() {
+    this.fighters = [this.player, ...this.humans, ...this.bots].filter(Boolean);
+  }
+
+  _addRemote(id, name, color, isBot) {
+    if (!id || (this.player && id === this.player.id) || this._byId(id)) return null;
+    const f = this._makeFighter(name || "PLAYER", color || 0x8892a0, false);
+    f.id = id;
+    f.isRemote = true;
+    f.isBot = !!isBot;
+    f.arch = isBot ? ARCHETYPES[id % ARCHETYPES.length] : { id: "human" };
+    const rig = createOperator(f.color, f.name);
+    this.scene.add(rig.group);
+    f.rig = rig;
+    if (isBot) this.bots.push(f);
+    else this.humans.push(f);
+    this._rebuildFighters();
+    this._spawn(f);
+    return f;
+  }
+
+  _removeRemote(id) {
+    const f = this._byId(id);
+    if (!f || f.isPlayer) return;
+    if (f.rig) this.scene.remove(f.rig.group);
+    this.bots = this.bots.filter((b) => b !== f);
+    this.humans = this.humans.filter((h) => h !== f);
+    this._rebuildFighters();
+  }
+
+  _applyPeerState(msg) {
+    if (!msg || msg.id === this.player?.id) return;
+    let f = this._byId(msg.id);
+    if (!f) f = this._addRemote(msg.id, msg.name, msg.color, false);
+    if (!f) return;
+    f.pos.set(msg.x, msg.y, msg.z);
+    f.yaw = msg.yaw;
+    f.pitch = msg.pitch || 0;
+    f.health = msg.hp;
+    f.alive = !!msg.alive;
+    f.crouching = !!msg.cr;
+    f.kills = msg.k || 0;
+    f.deaths = msg.d || 0;
+    this._poseRemote(f);
+  }
+
+  _applyBotStates(list) {
+    const seen = new Set();
+    for (const b of list) {
+      seen.add(b.id);
+      let f = this._byId(b.id);
+      if (!f) f = this._addRemote(b.id, b.name, b.color, true);
+      if (!f) continue;
+      f.pos.set(b.x, b.y, b.z);
+      f.yaw = b.yaw;
+      f.health = b.hp;
+      f.alive = !!b.alive;
+      f.kills = b.k || 0;
+      f.deaths = b.d || 0;
+      this._poseRemote(f);
+    }
+    for (const bot of [...this.bots]) {
+      if (bot.isRemote && !seen.has(bot.id)) this._removeRemote(bot.id);
+    }
+  }
+
+  _poseRemote(f) {
+    if (!f.rig) return;
+    if (!f.alive) {
+      const t = 1;
+      f.rig.group.rotation.x = t * 1.2;
+      f.rig.group.position.set(f.pos.x, f.pos.y, f.pos.z);
+      return;
+    }
+    f.rig.group.visible = true;
+    f.rig.group.rotation.x = 0;
+    f.rig.group.position.copy(f.pos);
+    f.rig.group.rotation.y = f.yaw;
+    f.walkPhase += 0.2;
+    const swing = Math.sin(f.walkPhase) * 0.35;
+    f.rig.larm.rotation.x = -swing * 0.5;
+    f.rig.rarm.rotation.x = -1.05;
+    f.rig.lleg.rotation.x = swing;
+    f.rig.rleg.rotation.x = -swing;
+    f.rig.hpFg.scale.x = clamp(f.health / 100, 0.02, 1);
+    f.rig.hpFg.position.x = (f.rig.hpFg.scale.x - 1) * 0.39;
+    f.rig.hpGroup.lookAt(this.camera.position);
+  }
+
+  _netShot(msg) {
+    if (!msg || msg.id === this.player?.id) return;
+    this._tracer(msg.ox, msg.oy, msg.oz, msg.ox + msg.dx * 40, msg.oy + msg.dy * 40, msg.oz + msg.dz * 40);
+    const src = this._byId(msg.id);
+    const dist = src && this.player ? this.player.pos.distanceTo(src.pos) : 12;
+    this.audio.shoot(dist);
+  }
+
+  _netHit(msg) {
+    if (!msg || !this.player) return;
+    const attacker = this._byId(msg.id);
+    const target = this._byId(msg.tid);
+    if (!target) return;
+    const mine = target.isPlayer || (!target.isRemote && this.net.host);
+    if (mine) this.hurt(target, msg.dmg, attacker, msg.head, null, true);
+  }
+
+  _netTick(dt) {
+    if (!this.online || !this.net.connected || !this.player) return;
+    this._netAcc += dt;
+    if (this._netAcc < 1 / 15) return;
+    this._netAcc = 0;
+    const p = this.player;
+    this.net.send({
+      t: "st",
+      x: p.pos.x,
+      y: p.pos.y,
+      z: p.pos.z,
+      yaw: p.yaw,
+      pitch: p.pitch,
+      hp: p.health,
+      alive: p.alive,
+      cr: p.crouching,
+      k: p.kills,
+      d: p.deaths,
+      name: p.name,
+      color: p.color,
+    });
+    if (this.net.host && this.bots.length) {
+      this.net.send({
+        t: "bst",
+        bots: this.bots.filter((b) => !b.isRemote).map((b) => ({
+          id: b.id,
+          name: b.name,
+          color: b.color,
+          x: b.pos.x,
+          y: b.pos.y,
+          z: b.pos.z,
+          yaw: b.yaw,
+          hp: b.health,
+          alive: b.alive,
+          k: b.kills,
+          d: b.deaths,
+        })),
+      });
+    }
+  }
+
+  startMatch(opts = {}) {
     try {
       this.audio.init();
     } catch (_) {
@@ -934,7 +1164,11 @@ class Game {
     }
     try {
       this.sens = parseFloat($("sens").value);
-      this.botCount = parseInt($("bots").value, 10);
+      const keepOnline = !!(opts.keepOnline || opts.online);
+      this.online = keepOnline || this.online && !!opts.online;
+      if (opts.online) this.online = true;
+      if (opts.host != null) this.net.host = !!opts.host;
+      this.botCount = opts.bots != null ? opts.bots : parseInt($("bots").value, 10);
       $("menu").classList.add("hidden");
       $("match-over").classList.add("hidden");
       $("paused").classList.add("hidden");
@@ -946,32 +1180,57 @@ class Game {
       this.time = 0;
       this.pointerLocked = false;
 
-      for (const b of this.bots) this.scene.remove(b.rig.group);
+      for (const b of this.bots) if (b.rig) this.scene.remove(b.rig.group);
+      for (const h of this.humans) if (h.rig) this.scene.remove(h.rig.group);
       for (const e of this.effects) this.scene.remove(e.mesh);
       this.bots = [];
+      this.humans = [];
       this.effects.length = 0;
 
-      this.player = this._makeFighter("YOU", 0x5ce1ff, true);
-      this.bots = [];
-      for (let i = 0; i < this.botCount; i++) {
-        const op = OPERATORS[i % OPERATORS.length];
-        const bot = this._makeFighter(op.name, op.color, false);
-        bot.arch = ARCHETYPES[i % ARCHETYPES.length];
-        bot.strafeDir = Math.random() < 0.5 ? 1 : -1;
-        const rig = createOperator(op.color, op.name);
-        this.scene.add(rig.group);
-        bot.rig = rig;
-        this.bots.push(bot);
+      const myName = this._playerName();
+      const myColor = this.online ? 0x5ce1ff : 0x5ce1ff;
+      this.player = this._makeFighter(myName, myColor, true);
+      if (opts.netId) this.player.id = opts.netId;
+
+      const simulateBots = !this.online || this.net.host;
+      if (simulateBots) {
+        for (let i = 0; i < this.botCount; i++) {
+          const op = OPERATORS[i % OPERATORS.length];
+          const bot = this._makeFighter(op.name, op.color, false);
+          bot.id = 1000 + i;
+          bot.arch = ARCHETYPES[i % ARCHETYPES.length];
+          bot.strafeDir = Math.random() < 0.5 ? 1 : -1;
+          const rig = createOperator(op.color, op.name);
+          this.scene.add(rig.group);
+          bot.rig = rig;
+          this.bots.push(bot);
+        }
       }
-      this.fighters = [this.player, ...this.bots];
+
+      if (this.online && opts.players) {
+        for (const p of opts.players) {
+          if (p.id === this.player.id) continue;
+          this._addRemote(p.id, p.name, p.color, false);
+        }
+      }
+
+      this._rebuildFighters();
       const used = new Set();
       for (const f of this.fighters) {
+        if (f.isRemote) continue;
         this._spawn(f, used);
         used.add(f.spawnIndex);
       }
 
       $("frag-limit").textContent = String(CFG.fragLimit);
-      this._banner("FIGHT");
+      if (this.online && this.net.code) {
+        $("room-chip").classList.remove("hidden");
+        $("room-code-hud").textContent = this.net.code;
+        this._banner("ROOM " + this.net.code);
+      } else {
+        $("room-chip").classList.add("hidden");
+        this._banner(this.botCount ? "FIGHT" : "EMPTY ARENA");
+      }
       try {
         this.audio.spawn();
       } catch (_) {}
@@ -1163,12 +1422,22 @@ class Game {
     const hit = this.hitscan(ox, oy, oz, dx, dy, dz, 80, ent.id);
     this._tracer(ox, oy, oz, hit.x, hit.y, hit.z);
     this._sparks(hit.x, hit.y, hit.z);
-    const dist = ent.isPlayer ? 0 : this.player.pos.distanceTo(ent.pos);
+    const dist = ent.isPlayer ? 0 : this.player ? this.player.pos.distanceTo(ent.pos) : 8;
     this.audio.shoot(dist);
     this._alert(ent.pos, ent);
+    if (this.online && this.net.connected && ent.isPlayer) {
+      this.net.send({ t: "shot", ox, oy, oz, dx, dy, dz });
+    }
     if (hit.ent) {
       const dmg = CFG.damage * (hit.head ? CFG.headMult : 1) * rand(0.92, 1.05);
-      this.hurt(hit.ent, dmg, ent, hit.head, hit);
+      if (this.online && hit.ent.isRemote && ent.isPlayer) {
+        this._hitmarker(hit.head);
+        if (hit.head) this.audio.headshot();
+        else this.audio.hit();
+        this.net.send({ t: "hit", tid: hit.ent.id, dmg, head: !!hit.head });
+      } else {
+        this.hurt(hit.ent, dmg, ent, hit.head, hit);
+      }
     }
     return hit;
   }
@@ -1183,8 +1452,8 @@ class Game {
     }
   }
 
-  hurt(ent, dmg, attacker, head, hit) {
-    if (!ent.alive) return;
+  hurt(ent, dmg, attacker, head, hit, fromNet = false) {
+    if (!ent || !ent.alive) return;
     ent.health -= dmg;
     ent.lastHurtBy = attacker;
     ent.lastHurtAt = this.time;
@@ -1200,7 +1469,7 @@ class Game {
       if (head) this.audio.headshot();
       else this.audio.hit();
     }
-    if (ent.health <= 0) this.kill(ent, attacker, head);
+    if (ent.health <= 0) this.kill(ent, attacker, head, fromNet);
   }
 
   _hurtDir(attacker) {
@@ -1226,7 +1495,10 @@ class Game {
     this._hmT = setTimeout(() => el.classList.remove("show", "head"), 120);
   }
 
-  kill(ent, attacker, head) {
+  kill(ent, attacker, head, fromNet = false) {
+    if (!ent.alive && ent.health <= 0) {
+      /* still allow first kill path */
+    }
     ent.alive = false;
     ent.health = 0;
     ent.deaths += 1;
@@ -1310,6 +1582,7 @@ class Game {
     for (const b of this.bots) this._updateBot(b, dt);
     this._separate();
     for (const f of this.fighters) {
+      if (f.isRemote) continue;
       if (!f.alive) {
         f.respawnT -= dt;
         f.deathT += dt;
@@ -1317,6 +1590,7 @@ class Game {
       }
     }
     this._updateEffects(dt);
+    this._netTick(dt);
     this._updateHud();
   }
 
@@ -1404,6 +1678,7 @@ class Game {
         const a = list[i];
         const b = list[j];
         if (!a.alive || !b.alive) continue;
+        if (a.isRemote || b.isRemote) continue;
         const dx = b.pos.x - a.pos.x;
         const dz = b.pos.z - a.pos.z;
         const d = Math.hypot(dx, dz);
@@ -1552,6 +1827,10 @@ class Game {
   }
 
   _updateBot(bot, dt) {
+    if (bot.isRemote) {
+      this._poseRemote(bot);
+      return;
+    }
     const rig = bot.rig;
     if (!bot.alive) {
       const t = clamp(bot.deathT / 0.45, 0, 1);
@@ -1784,7 +2063,7 @@ class Game {
       .map(
         (f) =>
           `<tr class="${f.isPlayer ? "you" : ""} ${f.alive ? "" : "dead"}"><td>${f.name}${
-            f.isPlayer ? "" : " · " + f.arch.id.toUpperCase()
+            f.isPlayer ? "" : f.arch ? " · " + String(f.arch.id).toUpperCase() : ""
           }</td><td>${f.kills}</td><td>${f.deaths}</td><td>${f.alive ? "LIVE" : "DOWN"}</td></tr>`
       )
       .join("");
@@ -1806,10 +2085,10 @@ class Game {
       const [x2, y2] = map(b.max.x, b.max.z);
       g.fillRect(x1, y1, x2 - x1, y2 - y1);
     }
-    for (const bot of this.bots) {
-      if (!bot.alive) continue;
-      const [x, y] = map(bot.pos.x, bot.pos.z);
-      g.fillStyle = hex(bot.color);
+    for (const other of [...this.bots, ...this.humans]) {
+      if (!other.alive) continue;
+      const [x, y] = map(other.pos.x, other.pos.z);
+      g.fillStyle = hex(other.color);
       g.beginPath();
       g.arc(x, y, 3.2, 0, Math.PI * 2);
       g.fill();

@@ -1,17 +1,28 @@
 # NEXUS ARENA
 
-A first-person deathmatch against AI operators. You drop into a warehouse killbox with up to eight bots that hunt, take cover, reload, and fight each other. First to **20 frags** wins.
+A first-person deathmatch. Fight AI bots, other people online, or both. First to **20 frags** wins.
 
 ## Play
 
-This is a single-player match against AI bots. There is no online lobby or join code.
+```bash
+npm install
+npm start
+```
 
-1. Serve the folder (browsers need a local server for the game files):
-   ```bash
-   python3 -m http.server 8080
-   ```
-2. Open [http://localhost:8080](http://localhost:8080)
-3. Click **PLAY**. The match starts immediately — mouse lock is optional. On a phone, use the on-screen stick and FIRE button.
+Then open [http://localhost:8765](http://localhost:8765).
+
+### Local
+1. Leave **LOCAL** selected.
+2. Set **AI BOTS** to `0` for an empty arena, or 1–8 for bot opponents.
+3. Click **PLAY**.
+
+### Online
+1. Click **ONLINE**.
+2. Set bots (the room host’s value is used; `0` means humans only).
+3. **CREATE ROOM** and share the 4-letter code.
+4. Friends open the **same site**, click **ONLINE**, type the code, and **JOIN**.
+
+Everyone must be on the same running `npm start` server (or the shared preview URL). Mouse lock is optional. On a phone, use the stick and FIRE button.
 
 ## Controls
 
@@ -29,11 +40,4 @@ This is a single-player match against AI bots. There is no online lobby or join 
 
 ## AI
 
-Bots are free-for-all opponents, not teammates. Each one rolls an archetype:
-
-- **Rusher** — closes distance and sprays
-- **Soldier** — mid-range, trades fairly
-- **Sniper** — holds angles, slower fire
-- **Lurker** — peeks cover and waits
-
-They path around the map, react to gunfire, and break line of sight when they are hurt.
+Bots are free-for-all opponents. Each one rolls an archetype: rusher, soldier, sniper, or lurker.

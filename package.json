@@ -1,0 +1,12 @@
+{
+  "name": "nexus-arena",
+  "version": "1.0.0",
+  "private": true,
+  "description": "FPS deathmatch with optional AI bots and online multiplayer",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
+}
