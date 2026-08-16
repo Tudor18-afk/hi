@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NEXUS ARENA — AI Deathmatch</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' fill='%2307090d'/%3E%3Cpath d='M12 48 L32 12 L52 48 Z' fill='none' stroke='%235ce1ff' stroke-width='4'/%3E%3Ccircle cx='32' cy='36' r='4' fill='%23ffb347'/%3E%3C/svg%3E" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div id="root">
+    <canvas id="view"></canvas>
+
+    <div id="hud" class="hidden">
+      <div id="vignette"></div>
+      <div id="damage-flash"></div>
+      <div id="dir-n" class="hurt-dir"></div>
+      <div id="dir-e" class="hurt-dir"></div>
+      <div id="dir-s" class="hurt-dir"></div>
+      <div id="dir-w" class="hurt-dir"></div>
+
+      <div id="crosshair">
+        <i class="tick t"></i>
+        <i class="tick b"></i>
+        <i class="tick l"></i>
+        <i class="tick r"></i>
+        <i class="dot"></i>
+      </div>
+      <div id="hitmarker"></div>
+
+      <div id="killfeed"></div>
+
+      <div id="top-center">
+        <div class="frag-limit">FRAG LIMIT <b id="frag-limit">20</b></div>
+        <div id="lead-chip">LEAD · <span id="lead-name">—</span> <span id="lead-score">0</span></div>
+      </div>
+
+      <canvas id="minimap" width="176" height="176"></canvas>
+
+      <div id="hp-panel">
+        <div class="meta">VITALS</div>
+        <div id="hp-row">
+          <div id="hp-bar-wrap"><div id="hp-bar"></div></div>
+          <div id="hp-num">100</div>
+        </div>
+      </div>
+
+      <div id="ammo-panel">
+        <div id="ammo-mag">30</div>
+        <div id="ammo-rest">/ 90</div>
+        <div class="meta">RIFLE · FULL AUTO</div>
+      </div>
+
+      <div id="score-chip"><b id="my-frags">0</b><span>FRAGS</span></div>
+      <div id="banner"></div>
+    </div>
+
+    <div id="scoreboard" class="hidden">
+      <div class="sb-head">
+        <span>OPERATORS</span>
+        <span class="sb-hint">HOLD TAB</span>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>NAME</th>
+            <th>FRAGS</th>
+            <th>DEATHS</th>
+            <th>STATUS</th>
+          </tr>
+        </thead>
+        <tbody id="sb-body"></tbody>
+      </table>
+    </div>
+
+    <div id="death-screen" class="hidden">
+      <div class="kia">KIA</div>
+      <div id="killed-by">eliminated by —</div>
+      <div id="respawn-cd">RESPAWNING</div>
+    </div>
+
+    <div id="paused" class="hidden">
+      <h2>PAUSED</h2>
+      <p>Click to lock mouse and continue</p>
+    </div>
+
+    <div id="match-over" class="hidden">
+      <div class="eyebrow">MATCH COMPLETE</div>
+      <h2 id="winner-name">YOU</h2>
+      <p id="winner-sub">took the arena</p>
+      <div id="final-board"></div>
+      <button id="btn-again" type="button">RUN IT BACK</button>
+    </div>
+
+    <div id="menu">
+      <div class="menu-scan"></div>
+      <div class="menu-inner">
+        <div class="eyebrow">LOCAL SIM · EIGHT HOSTILES</div>
+        <h1>NEXUS<span>ARENA</span></h1>
+        <p class="tag">
+          A first-person deathmatch against AI operators who hunt, take cover,
+          and fight each other. Highest score wins.
+        </p>
+        <button id="btn-start" type="button">ENTER ARENA</button>
+        <div class="settings">
+          <label>
+            <span>MOUSE SENSITIVITY</span>
+            <input id="sens" type="range" min="0.4" max="2.8" step="0.1" value="1.2" />
+            <b id="sens-val">1.2</b>
+          </label>
+          <label>
+            <span>AI OPERATORS</span>
+            <input id="bots" type="range" min="4" max="8" step="1" value="8" />
+            <b id="bots-val">8</b>
+          </label>
+        </div>
+        <div class="help">
+          <div><kbd>WASD</kbd> move <kbd>SHIFT</kbd> sprint <kbd>SPACE</kbd> jump <kbd>C</kbd> crouch</div>
+          <div><kbd>LMB</kbd> fire <kbd>R</kbd> reload <kbd>TAB</kbd> scoreboard <kbd>ESC</kbd> pause</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script type="module" src="js/game.js"></script>
+</body>
+</html>
