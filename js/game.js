@@ -22,6 +22,7 @@ const CFG = {
   killCredit: 100,
   headBonus: 50,
   startCredit: 200,
+  netHz: 30,
 };
 
 const WEAPONS = {
@@ -362,7 +363,7 @@ class NavGrid {
     ];
     let found = false;
     let steps = 0;
-    while (open.length && steps++ < 2800) {
+    while (open.length && steps++ < 1400) {
       let bi = 0;
       let bf = 1e9;
       for (let k = 0; k < open.length; k++) {
@@ -459,12 +460,6 @@ function buildWorld(scene, mapId) {
         [-20, 20, 0xffb347],
         [20, 20, 0x88ddff],
         [0, 0, 0x5ce1ff],
-        [-10, 0, 0xffe0a0],
-        [10, 0, 0xffe0a0],
-        [0, -10, 0xa8d8ff],
-        [0, 10, 0xa8d8ff],
-        [-12, -12, 0xffcc88],
-        [12, 12, 0xffcc88],
       ],
     },
     yard: {
@@ -479,12 +474,6 @@ function buildWorld(scene, mapId) {
         [-22, 18, 0x88ddff],
         [22, 18, 0x88ddff],
         [0, 0, 0xffcc66],
-        [-10, 8, 0xffe0a0],
-        [10, -8, 0xffe0a0],
-        [0, 16, 0xffd080],
-        [0, -16, 0xffd080],
-        [-16, 0, 0xa8d8ff],
-        [16, 0, 0xa8d8ff],
       ],
     },
     labs: {
@@ -499,12 +488,6 @@ function buildWorld(scene, mapId) {
         [-12, 12, 0x5ce1ff],
         [12, 12, 0xaa66ff],
         [0, 0, 0xff66aa],
-        [-20, 0, 0x88aaff],
-        [20, 0, 0x88aaff],
-        [0, -20, 0xff88cc],
-        [0, 20, 0xff88cc],
-        [-8, 8, 0x66ffff],
-        [8, -8, 0x66ffff],
       ],
     },
   };
@@ -661,7 +644,7 @@ function buildWorld(scene, mapId) {
   const sun = new THREE.DirectionalLight(theme.sun, theme.sunI || 1.4);
   sun.position.set(18, 32, 12);
   sun.castShadow = true;
-  sun.shadow.mapSize.set(2048, 2048);
+  sun.shadow.mapSize.set(1024, 1024);
   sun.shadow.camera.near = 2;
   sun.shadow.camera.far = 80;
   sun.shadow.camera.left = -40;
@@ -670,20 +653,14 @@ function buildWorld(scene, mapId) {
   sun.shadow.camera.bottom = -40;
   sun.shadow.bias = -0.00025;
   root.add(sun);
-  const fill = new THREE.DirectionalLight(0xb8d4ff, 0.42);
+  const fill = new THREE.DirectionalLight(0xb8d4ff, 0.48);
   fill.position.set(-16, 18, -12);
   root.add(fill);
-  const bounce = new THREE.DirectionalLight(0xffe0c0, 0.22);
-  bounce.position.set(8, 6, -18);
-  root.add(bounce);
 
   for (const [x, z, col] of theme.lamps) {
-    const l = new THREE.PointLight(col, 3.15, 34, 1.25);
+    const l = new THREE.PointLight(col, 3.8, 36, 1.2);
     l.position.set(x, 6.4, z);
     root.add(l);
-    const glow = new THREE.PointLight(col, 0.7, 12, 1.8);
-    glow.position.set(x, 3.1, z);
-    root.add(glow);
     const bulb = new THREE.Mesh(
       new THREE.BoxGeometry(0.7, 0.14, 0.7),
       new THREE.MeshStandardMaterial({ color: col, emissive: col, emissiveIntensity: 3.4 })
@@ -702,7 +679,7 @@ function matSteel(hex, rough = 0.32, metal = 0.82) {
   return new THREE.MeshStandardMaterial({ color: hex, roughness: rough, metalness: metal });
 }
 
-function createWeapon(kind) {
+function createWeapon(kind, shadows = true) {
   const g = new THREE.Group();
   const black = matSteel(0x1a1c20, 0.36, 0.78);
   const polymer = matSteel(0x2c3036, 0.64, 0.16);
@@ -779,8 +756,8 @@ function createWeapon(kind) {
 
   g.traverse((o) => {
     if (o.isMesh) {
-      o.castShadow = true;
-      o.receiveShadow = true;
+      o.castShadow = shadows;
+      o.receiveShadow = shadows;
     }
   });
   return g;
@@ -928,6 +905,8 @@ class Game {
     this.net = new Net();
     this.net.onEvent = (msg) => this._onNet(msg);
     this._netAcc = 0;
+    this._hudAcc = 0;
+    this._miniWalls = null;
     this.running = false;
     this.paused = false;
     if (typeof location !== "undefined" && /(?:\?|&)fast=1(?:&|$)/.test(location.search)) {
@@ -948,11 +927,16 @@ class Game {
     this.shots = [];
     this.idSeq = 1;
 
-    this.renderer = new THREE.WebGLRenderer({ canvas: $("view"), antialias: true });
-    this.renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    this.renderer = new THREE.WebGLRenderer({
+      canvas: $("view"),
+      antialias: (devicePixelRatio || 1) < 1.4,
+      powerPreference: "high-performance",
+      stencil: false,
+    });
+    this.renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 1.25));
     this.renderer.setSize(innerWidth, innerHeight);
     this.renderer.shadowMap.enabled = true;
-    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    this.renderer.shadowMap.type = THREE.PCFShadowMap;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.38;
@@ -995,20 +979,17 @@ class Game {
 
   _makeViewmodel() {
     const root = new THREE.Group();
-    const gun = createWeapon("rifle");
+    const gun = createWeapon("rifle", false);
     gun.scale.set(1.28, 1.28, 1.28);
     gun.position.set(0.32, -0.28, -0.62);
     gun.rotation.set(0.04, 0.08, -0.04);
     root.add(gun);
-    const light = new THREE.PointLight(0xffcc88, 0, 5.5);
+    const light = new THREE.PointLight(0xffcc88, 0, 4.5);
     light.position.set(0.32, -0.2, -1.05);
     root.add(light);
-    const fill = new THREE.PointLight(0xe8f4ff, 1.35, 3.2);
+    const fill = new THREE.PointLight(0xe8f4ff, 0.85, 2.6);
     fill.position.set(0.08, 0.08, -0.12);
     root.add(fill);
-    const rim = new THREE.PointLight(0xffe0b0, 0.55, 2.4);
-    rim.position.set(0.4, -0.05, -0.35);
-    root.add(rim);
     this.muzzleLight = light;
     this.gunRoot = gun;
     this.gunRestZ = -0.62;
@@ -1274,6 +1255,7 @@ class Game {
     this.spawns = built.spawns;
     this.nav = new NavGrid(CFG.world, 1.5, this.colliders);
     this.mapId = mapId;
+    this._miniWalls = null;
     if ($("map-name-hud")) $("map-name-hud").textContent = MAPS[mapId].name;
   }
 
@@ -1403,15 +1385,12 @@ class Game {
     let f = this._byId(msg.id);
     if (!f) f = this._addRemote(msg.id, msg.name, msg.color, false);
     if (!f) return;
-    f.pos.set(msg.x, msg.y, msg.z);
-    f.yaw = msg.yaw;
-    f.pitch = msg.pitch || 0;
+    this._setNetPose(f, msg.x, msg.y, msg.z, msg.yaw, msg.pitch);
     f.health = msg.hp;
     f.alive = !!msg.alive;
     f.crouching = !!msg.cr;
-    f.kills = msg.k || 0;
-    f.deaths = msg.d || 0;
-    this._poseRemote(f);
+    if (msg.k != null) f.kills = msg.k;
+    if (msg.d != null) f.deaths = msg.d;
   }
 
   _applyBotStates(list) {
@@ -1421,17 +1400,47 @@ class Game {
       let f = this._byId(b.id);
       if (!f) f = this._addRemote(b.id, b.name, b.color, true);
       if (!f) continue;
-      f.pos.set(b.x, b.y, b.z);
-      f.yaw = b.yaw;
+      this._setNetPose(f, b.x, b.y, b.z, b.yaw, 0);
       f.health = b.hp;
       f.alive = !!b.alive;
-      f.kills = b.k || 0;
-      f.deaths = b.d || 0;
-      this._poseRemote(f);
+      if (b.k != null) f.kills = b.k;
+      if (b.d != null) f.deaths = b.d;
     }
     for (const bot of [...this.bots]) {
       if (bot.isRemote && !seen.has(bot.id)) this._removeRemote(bot.id);
     }
+  }
+
+  _setNetPose(f, x, y, z, yaw, pitch) {
+    if (!f.netPos) f.netPos = new THREE.Vector3();
+    f.netPos.set(x, y, z);
+    f.netYaw = yaw;
+    f.netPitch = pitch || 0;
+    if (!f._netInit) {
+      f.pos.copy(f.netPos);
+      f.yaw = f.netYaw;
+      f.pitch = f.netPitch;
+      f._netInit = true;
+    }
+  }
+
+  _interpRemote(f, dt) {
+    if (!f.netPos) {
+      this._poseRemote(f);
+      return;
+    }
+    const dx = f.pos.x - f.netPos.x;
+    const dz = f.pos.z - f.netPos.z;
+    if (dx * dx + dz * dz > 64) {
+      f.pos.copy(f.netPos);
+      f.yaw = f.netYaw;
+    } else {
+      const k = 1 - Math.exp(-18 * dt);
+      f.pos.lerp(f.netPos, k);
+      f.yaw = lerpAng(f.yaw, f.netYaw, k);
+      f.pitch = lerp(f.pitch, f.netPitch, k);
+    }
+    this._poseRemote(f);
   }
 
   _poseRemote(f) {
@@ -1477,23 +1486,22 @@ class Game {
   _netTick(dt) {
     if (!this.online || !this.net.connected || !this.player) return;
     this._netAcc += dt;
-    if (this._netAcc < 1 / 15) return;
+    if (this._netAcc < 1 / CFG.netHz) return;
     this._netAcc = 0;
     const p = this.player;
+    const q = (n) => Math.round(n * 100) / 100;
     this.net.send({
       t: "st",
-      x: p.pos.x,
-      y: p.pos.y,
-      z: p.pos.z,
-      yaw: p.yaw,
-      pitch: p.pitch,
-      hp: p.health,
-      alive: p.alive,
-      cr: p.crouching,
+      x: q(p.pos.x),
+      y: q(p.pos.y),
+      z: q(p.pos.z),
+      yaw: q(p.yaw),
+      pitch: q(p.pitch),
+      hp: Math.round(p.health),
+      alive: p.alive ? 1 : 0,
+      cr: p.crouching ? 1 : 0,
       k: p.kills,
       d: p.deaths,
-      name: p.name,
-      color: p.color,
     });
     if (this.net.host && this.bots.length) {
       this.net.send({
@@ -1502,12 +1510,12 @@ class Game {
           id: b.id,
           name: b.name,
           color: b.color,
-          x: b.pos.x,
-          y: b.pos.y,
-          z: b.pos.z,
-          yaw: b.yaw,
-          hp: b.health,
-          alive: b.alive,
+          x: q(b.pos.x),
+          y: q(b.pos.y),
+          z: q(b.pos.z),
+          yaw: q(b.yaw),
+          hp: Math.round(b.health),
+          alive: b.alive ? 1 : 0,
           k: b.kills,
           d: b.deaths,
         })),
@@ -1627,6 +1635,10 @@ class Game {
       color,
       isPlayer,
       pos: new THREE.Vector3(),
+      netPos: new THREE.Vector3(),
+      netYaw: 0,
+      netPitch: 0,
+      _netInit: false,
       vel: new THREE.Vector3(),
       yaw: 0,
       pitch: 0,
@@ -1753,7 +1765,7 @@ class Game {
     }
     if (this.viewmodel && this.gunRoot) {
       this.viewmodel.remove(this.gunRoot);
-      const gun = createWeapon(id);
+      const gun = createWeapon(id, false);
       gun.scale.set(1.28, 1.28, 1.28);
       gun.position.set(0.32, -0.28, this.gunRestZ || -0.62);
       gun.rotation.set(0.04, 0.08, -0.04);
@@ -1886,7 +1898,7 @@ class Game {
   }
 
   _loop(now) {
-    const dt = Math.min(0.033, (now - this.last) / 1000);
+    const dt = Math.min(0.05, (now - this.last) / 1000);
     this.last = now;
     if (this.running && !this.paused && !this.matchOver) {
       if (this.inShop) this._updateShop(dt);
@@ -1982,8 +1994,8 @@ class Game {
       dy /= len;
       dz /= len;
       const hit = this.hitscan(ox, oy, oz, dx, dy, dz, 80, ent.id);
-      this._tracer(ox, oy, oz, hit.x, hit.y, hit.z);
-      if (i === 0 || pellets <= 3) this._sparks(hit.x, hit.y, hit.z);
+      if (i === 0) this._tracer(ox, oy, oz, hit.x, hit.y, hit.z);
+      if (i === 0) this._sparks(hit.x, hit.y, hit.z);
       if (hit.ent) {
         const dmgBase = shotDmg * (hit.head ? CFG.headMult : 1) * rand(0.92, 1.05);
         const dmg = ent.isPlayer ? dmgBase : dmgBase * this.difficulty.dmg;
@@ -2108,11 +2120,15 @@ class Game {
   }
 
   _tracer(ax, ay, az, bx, by, bz) {
+    if (this.effects.length > 40) {
+      const old = this.effects.shift();
+      this.scene.remove(old.mesh);
+    }
     const dx = bx - ax;
     const dy = by - ay;
     const dz = bz - az;
     const len = Math.hypot(dx, dy, dz) || 0.01;
-    const mesh = new THREE.Mesh(this.tracerGeo, this.tracerMat.clone());
+    const mesh = new THREE.Mesh(this.tracerGeo, this.tracerMat);
     mesh.position.set((ax + bx) / 2, (ay + by) / 2, (az + bz) / 2);
     mesh.quaternion.setFromUnitVectors(
       new THREE.Vector3(0, 1, 0),
@@ -2120,11 +2136,12 @@ class Game {
     );
     mesh.scale.y = len;
     this.scene.add(mesh);
-    this.effects.push({ mesh, life: 0.07, max: 0.07, fade: true });
+    this.effects.push({ mesh, life: 0.06, max: 0.06, fade: false });
   }
 
   _sparks(x, y, z) {
-    for (let i = 0; i < 6; i++) {
+    const n = Math.min(3, 40 - this.effects.length);
+    for (let i = 0; i < n; i++) {
       const mesh = new THREE.Mesh(this.sparkGeo, this.sparkMat);
       mesh.position.set(x, y, z);
       this.scene.add(mesh);
@@ -2148,6 +2165,9 @@ class Game {
       return;
     }
     if (this.player) this._updatePlayer(dt);
+    for (const h of this.humans) {
+      if (h.isRemote) this._interpRemote(h, dt);
+    }
     for (const b of this.bots) this._updateBot(b, dt);
     this._separate();
     for (const f of this.fighters) {
@@ -2160,7 +2180,7 @@ class Game {
     }
     this._updateEffects(dt);
     this._netTick(dt);
-    this._updateHud();
+    this._updateHud(dt);
   }
 
   _moveWish(ent, wx, wz, speed, dt) {
@@ -2384,6 +2404,9 @@ class Game {
     for (const o of this.fighters) {
       if (o === bot || !o.alive) continue;
       const dist = bot.pos.distanceTo(o.pos);
+      if (dist > 48) continue;
+      const fov = bot.lastHurtAt > this.time - 2.2 ? 6.3 : bot.arch.fov;
+      if (dist >= 4 && !this.inFov(bot, o.pos.x, o.pos.z, fov)) continue;
       const see = this.los(
         bot.pos.x,
         bot.pos.y + 1.5,
@@ -2392,9 +2415,7 @@ class Game {
         o.pos.y + 1.3,
         o.pos.z
       );
-      const fov = bot.lastHurtAt > this.time - 2.2 ? 6.3 : bot.arch.fov;
-      const aware = see && (this.inFov(bot, o.pos.x, o.pos.z, fov) || dist < 4);
-      if (!aware) continue;
+      if (!see) continue;
       let score = dist;
       if (o.isPlayer) score *= 0.82;
       if (bot.target === o) score *= 0.75;
@@ -2408,7 +2429,7 @@ class Game {
 
   _updateBot(bot, dt) {
     if (bot.isRemote) {
-      this._poseRemote(bot);
+      this._interpRemote(bot, dt);
       return;
     }
     const rig = bot.rig;
@@ -2616,7 +2637,9 @@ class Game {
         e.mesh.position.y += e.vy * dt;
         e.mesh.position.z += e.vz * dt;
       }
-      if (e.fade && e.mesh.material) e.mesh.material.opacity = e.life / e.max;
+      if (e.fade && e.mesh.material && e.mesh.material !== this.tracerMat && e.mesh.material !== this.sparkMat) {
+        e.mesh.material.opacity = e.life / e.max;
+      }
       if (e.life <= 0) {
         this.scene.remove(e.mesh);
         if (e.mesh.material && e.mesh.material !== this.tracerMat && e.mesh.material !== this.sparkMat) {
@@ -2627,7 +2650,7 @@ class Game {
     }
   }
 
-  _updateHud() {
+  _updateHud(dt = 0.2) {
     const p = this.player;
     if (!p) return;
     $("hp-num").textContent = String(Math.max(0, Math.ceil(p.health)));
@@ -2642,34 +2665,40 @@ class Game {
       $("round-timer").textContent = fmtTime(this.roundLeft);
       $("round-timer").classList.toggle("low", this.roundLeft <= 30);
     }
-    if ($("round-num")) $("round-num").textContent = String(this.round);
-    const ranked = this._ranked();
-    $("lead-name").textContent = ranked[0] ? ranked[0].name : "—";
-    $("lead-score").textContent = ranked[0] ? String(ranked[0].kills) : "0";
-    if ($("live-board")) $("live-board").innerHTML = this._boardHtml();
-    const w = this._weapon();
-    if ($("weapon-name")) {
-      $("weapon-name").textContent = w.name.toUpperCase() + " · " + (w.auto ? "FULL AUTO" : "SEMI AUTO");
+    this._hudAcc += dt;
+    const slow = this._hudAcc >= 0.1;
+    if (slow) {
+      this._hudAcc = 0;
+      if ($("round-num")) $("round-num").textContent = String(this.round);
+      const ranked = this._ranked();
+      $("lead-name").textContent = ranked[0] ? ranked[0].name : "—";
+      $("lead-score").textContent = ranked[0] ? String(ranked[0].kills) : "0";
+      if ($("live-board")) $("live-board").innerHTML = this._boardHtml();
+      const w = this._weapon();
+      if ($("weapon-name")) {
+        $("weapon-name").textContent = w.name.toUpperCase() + " · " + (w.auto ? "FULL AUTO" : "SEMI AUTO");
+      }
+      const sb = $("scoreboard");
+      if (sb && !sb.classList.contains("hidden")) {
+        $("sb-body").innerHTML = ranked
+          .map(
+            (f) =>
+              `<tr class="${f.isPlayer ? "you" : ""} ${f.alive ? "" : "dead"}"><td>${f.name}${
+                f.isPlayer ? "" : f.arch ? " · " + String(f.arch.id).toUpperCase() : ""
+              }</td><td>${f.kills}</td><td>${f.deaths}</td><td>${f.alive ? "LIVE" : "DOWN"}</td></tr>`
+          )
+          .join("");
+      }
     }
-    if ($("map-name-hud")) $("map-name-hud").textContent = MAPS[this.mapId] ? MAPS[this.mapId].name : this.mapId;
-    if ($("diff-name-hud")) $("diff-name-hud").textContent = this.difficulty.name;
-    const body = $("sb-body");
-    body.innerHTML = ranked
-      .map(
-        (f) =>
-          `<tr class="${f.isPlayer ? "you" : ""} ${f.alive ? "" : "dead"}"><td>${f.name}${
-            f.isPlayer ? "" : f.arch ? " · " + String(f.arch.id).toUpperCase() : ""
-          }</td><td>${f.kills}</td><td>${f.deaths}</td><td>${f.alive ? "LIVE" : "DOWN"}</td></tr>`
-      )
-      .join("");
     this._minimap();
   }
 
-  _minimap() {
+  _bakeMinimap() {
     const c = $("minimap");
-    const g = c.getContext("2d");
     const W = c.width;
-    g.clearRect(0, 0, W, W);
+    const off = document.createElement("canvas");
+    off.width = off.height = W;
+    const g = off.getContext("2d");
     g.fillStyle = "#05080c";
     g.fillRect(0, 0, W, W);
     const S = CFG.world;
@@ -2680,8 +2709,21 @@ class Game {
       const [x2, y2] = map(b.max.x, b.max.z);
       g.fillRect(x1, y1, x2 - x1, y2 - y1);
     }
-    for (const other of [...this.bots, ...this.humans]) {
-      if (!other.alive) continue;
+    g.strokeStyle = "rgba(92,225,255,0.35)";
+    g.strokeRect(0.5, 0.5, W - 1, W - 1);
+    this._miniWalls = off;
+  }
+
+  _minimap() {
+    const c = $("minimap");
+    const g = c.getContext("2d");
+    const W = c.width;
+    if (!this._miniWalls) this._bakeMinimap();
+    g.drawImage(this._miniWalls, 0, 0);
+    const S = CFG.world;
+    const map = (x, z) => [((x + S / 2) / S) * W, ((z + S / 2) / S) * W];
+    for (const other of this.fighters) {
+      if (!other || other.isPlayer || !other.alive) continue;
       const [x, y] = map(other.pos.x, other.pos.z);
       g.fillStyle = hex(other.color);
       g.beginPath();
@@ -2702,8 +2744,6 @@ class Game {
       g.fill();
       g.restore();
     }
-    g.strokeStyle = "rgba(92,225,255,0.35)";
-    g.strokeRect(0.5, 0.5, W - 1, W - 1);
   }
 
   draw() {

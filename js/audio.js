@@ -38,13 +38,16 @@ export class GameAudio {
   }
 
   _noise(t, dur) {
-    const n = Math.floor(this.ctx.sampleRate * dur);
-    const buf = this.ctx.createBuffer(1, n, this.ctx.sampleRate);
-    const data = buf.getChannelData(0);
-    for (let i = 0; i < n; i++) data[i] = Math.random() * 2 - 1;
+    if (!this._nbuf) {
+      const n = Math.floor(this.ctx.sampleRate * 0.12);
+      this._nbuf = this.ctx.createBuffer(1, n, this.ctx.sampleRate);
+      const data = this._nbuf.getChannelData(0);
+      for (let i = 0; i < n; i++) data[i] = Math.random() * 2 - 1;
+    }
     const src = this.ctx.createBufferSource();
-    src.buffer = buf;
+    src.buffer = this._nbuf;
     src.start(t);
+    src.stop(t + dur);
     return src;
   }
 

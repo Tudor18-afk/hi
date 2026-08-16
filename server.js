@@ -89,9 +89,12 @@ const server = http.createServer((req, res) => {
   });
 });
 
-const wss = new WebSocketServer({ server });
+const wss = new WebSocketServer({ server, perMessageDeflate: false });
 
 wss.on("connection", (ws) => {
+  try {
+    if (ws._socket && ws._socket.setNoDelay) ws._socket.setNoDelay(true);
+  } catch (_) {}
   ws.playerId = null;
   ws.roomCode = null;
 
