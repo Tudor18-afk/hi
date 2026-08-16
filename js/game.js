@@ -1502,31 +1502,19 @@ function createViewArms(look, teamColor) {
   g.add(rHand, lHand);
 
   const mkSeg = (r, len, mat) => new THREE.Mesh(new THREE.CapsuleGeometry(r, len, 5, 12), mat);
-  const rUpper = mkSeg(0.1, 0.22, shirt);
-  const rLower = mkSeg(0.078, 0.2, skin);
-  const lUpper = mkSeg(0.1, 0.22, shirt);
-  const lLower = mkSeg(0.078, 0.2, skin);
-  const rEl = new THREE.Mesh(new THREE.SphereGeometry(0.088, 10, 8), shirt);
-  const lEl = new THREE.Mesh(new THREE.SphereGeometry(0.088, 10, 8), shirt);
-  const rSh = new THREE.Mesh(new THREE.SphereGeometry(0.12, 10, 8), shirt);
-  const lSh = new THREE.Mesh(new THREE.SphereGeometry(0.12, 10, 8), shirt);
-  const rCuff = new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 6), shirt);
-  const lCuff = new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 6), shirt);
-  g.add(rUpper, rLower, lUpper, lLower, rEl, lEl, rSh, lSh, rCuff, lCuff);
+  const rArm = mkSeg(0.11, 0.42, shirt);
+  const rFore = mkSeg(0.086, 0.28, skin);
+  const lArm = mkSeg(0.11, 0.42, shirt);
+  const lFore = mkSeg(0.086, 0.28, skin);
+  g.add(rArm, rFore, lArm, lFore);
 
   g.userData = {
     leftHand: lHand,
     rightHand: rHand,
-    rUpper,
-    rLower,
-    lUpper,
-    lLower,
-    rEl,
-    lEl,
-    rSh,
-    lSh,
-    rCuff,
-    lCuff,
+    rUpper: rArm,
+    rLower: rFore,
+    lUpper: lArm,
+    lLower: lFore,
   };
   g.traverse((m) => {
     if (m.isMesh) {
@@ -2622,26 +2610,20 @@ class Game {
     const lSh = [-0.18, -0.24, 0.12];
     const rw = d.rightHand.position;
     const lw = d.leftHand.position;
-    const rEl = [
-      rSh[0] + (rw.x - rSh[0]) * 0.46 + 0.08,
-      rSh[1] + (rw.y - rSh[1]) * 0.46 - 0.1,
-      rSh[2] + (rw.z - rSh[2]) * 0.46 + 0.02,
+    const rMid = [
+      rSh[0] + (rw.x - rSh[0]) * 0.52,
+      rSh[1] + (rw.y - rSh[1]) * 0.52 - 0.04,
+      rSh[2] + (rw.z - rSh[2]) * 0.52,
     ];
-    const lEl = [
-      lSh[0] + (lw.x - lSh[0]) * 0.46 - 0.06,
-      lSh[1] + (lw.y - lSh[1]) * 0.46 - 0.1,
-      lSh[2] + (lw.z - lSh[2]) * 0.46 + 0.02,
+    const lMid = [
+      lSh[0] + (lw.x - lSh[0]) * 0.52,
+      lSh[1] + (lw.y - lSh[1]) * 0.52 - 0.04,
+      lSh[2] + (lw.z - lSh[2]) * 0.52,
     ];
-    d.rSh.position.set(rSh[0], rSh[1], rSh[2]);
-    d.lSh.position.set(lSh[0], lSh[1], lSh[2]);
-    d.rEl.position.set(rEl[0], rEl[1], rEl[2]);
-    d.lEl.position.set(lEl[0], lEl[1], lEl[2]);
-    d.rCuff.position.copy(rw);
-    d.lCuff.position.copy(lw);
-    placeArmSeg(d.rUpper, rSh[0], rSh[1], rSh[2], rEl[0], rEl[1], rEl[2], 0.22);
-    placeArmSeg(d.rLower, rEl[0], rEl[1], rEl[2], rw.x, rw.y, rw.z, 0.2);
-    placeArmSeg(d.lUpper, lSh[0], lSh[1], lSh[2], lEl[0], lEl[1], lEl[2], 0.22);
-    placeArmSeg(d.lLower, lEl[0], lEl[1], lEl[2], lw.x, lw.y, lw.z, 0.2);
+    placeArmSeg(d.rUpper, rSh[0], rSh[1], rSh[2], rMid[0], rMid[1], rMid[2], 0.42);
+    placeArmSeg(d.rLower, rMid[0], rMid[1], rMid[2], rw.x, rw.y, rw.z, 0.28);
+    placeArmSeg(d.lUpper, lSh[0], lSh[1], lSh[2], lMid[0], lMid[1], lMid[2], 0.42);
+    placeArmSeg(d.lLower, lMid[0], lMid[1], lMid[2], lw.x, lw.y, lw.z, 0.28);
   }
 
   _charOpts(ent) {
