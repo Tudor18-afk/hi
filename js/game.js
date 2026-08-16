@@ -1836,6 +1836,10 @@ class Game {
     if (document.exitPointerLock) document.exitPointerLock();
     $("shop").classList.remove("hidden");
     if ($("btn-next-round")) $("btn-next-round").classList.toggle("hidden", this.online && !this.net.host);
+    if ($("round-timer")) {
+      $("round-timer").textContent = "0:00";
+      $("round-timer").classList.add("low");
+    }
     this._renderShop();
     this._banner("ROUND OVER · ARMORY");
     if (!fromNet && this.online && this.net.host) this.net.send({ t: "shop" });
@@ -1868,6 +1872,7 @@ class Game {
     }
     this._equipWeapon(this.weaponId, true);
     $("death-screen").classList.add("hidden");
+    this._updateHud();
     this._banner("ROUND " + this.round);
     this._requestLock();
     if (!fromNet && this.online && this.net.host) this.net.send({ t: "next" });
