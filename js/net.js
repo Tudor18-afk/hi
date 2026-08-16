@@ -88,6 +88,18 @@ export class Net {
     this._whenOpen(() => this.send({ t: "join", code, name, look }));
   }
 
+  watch() {
+    this._whenOpen(() => this.send({ t: "watch" }));
+  }
+
+  unwatch() {
+    this.send({ t: "unwatch" });
+  }
+
+  listLobbies() {
+    this._whenOpen(() => this.send({ t: "lobbies" }));
+  }
+
   _whenOpen(fn) {
     const ws = this.connect();
     if (!ws) {

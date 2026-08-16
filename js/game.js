@@ -2163,6 +2163,14 @@ class Game {
       e.preventDefault();
       this._joinRoom();
     });
+    if ($("lobby-list")) {
+      $("lobby-list").addEventListener("click", (e) => {
+        const row = e.target.closest("[data-join]");
+        if (!row || row.disabled) return;
+        e.preventDefault();
+        this._joinLobby(row.dataset.join);
+      });
+    }
     $("room-code").addEventListener("keydown", (e) => {
       if (e.key === "Enter") this._joinRoom();
     });
@@ -3029,8 +3037,84 @@ class Game {
     if ($("btn-start")) $("btn-start").textContent = this.online ? "CREATE ROOM" : "PLAY";
     if (this.online) {
       if ($("net-status")) $("net-status").textContent = "Connecting…";
+      this._renderLobbies([]);
+      if ($("lobby-list")) {
+        const empty = $("lobby-list").querySelector(".lobby-empty");
+        if (empty) empty.textContent = "Connecting to find rooms…";
+      }
       this.net.connect();
+      this._startLobbyWatch();
+    } else {
+      this._stopLobbyWatch();
     }
+  }
+
+  _startLobbyWatch() {
+    this._stopLobbyWatch(true);
+    this.net.watch();
+    this._lobbyTimer = setInterval(() => {
+      if (this.online && !this.running) this.net.listLobbies();
+      else this._stopLobbyWatch();
+    }, 2000);
+  }
+
+  _stopLobbyWatch(keepSocket) {
+    if (this._lobbyTimer) {
+      clearInterval(this._lobbyTimer);
+      this._lobbyTimer = null;
+    }
+    if (!keepSocket) this.net.unwatch();
+  }
+
+  _renderLobbies(rooms) {
+    const el = $("lobby-list");
+    if (!el) return;
+    el.replaceChildren();
+    const list = Array.isArray(rooms) ? rooms : [];
+    if (!list.length) {
+      const empty = document.createElement("div");
+      empty.className = "lobby-empty";
+      empty.textContent = this.online
+        ? "No open lobbies yet. Hit CREATE ROOM and it will show up here."
+        : "Switch to ONLINE to see rooms.";
+      el.appendChild(empty);
+      return;
+    }
+    for (const r of list) {
+      const max = r.max || 8;
+      const full = (r.players || 0) >= max;
+      const map = (MAPS[r.map] && MAPS[r.map].name) || "ARENA";
+      const mode = (MODES[r.mode] && MODES[r.mode].short) || "FFA";
+      const diff = (DIFFICULTY[r.diff] && DIFFICULTY[r.diff].name) || "";
+      const row = document.createElement("button");
+      row.type = "button";
+      row.className = "lobby-row" + (full ? " full" : "");
+      row.dataset.join = r.code || "";
+      row.disabled = full || !r.code;
+      const code = document.createElement("span");
+      code.className = "lobby-code";
+      code.textContent = r.code || "----";
+      const meta = document.createElement("span");
+      meta.className = "lobby-meta";
+      const host = document.createElement("b");
+      host.textContent = r.host || "HOST";
+      const info = document.createElement("i");
+      const bits = [r.players + "/" + max, mode, map];
+      if (diff) bits.push(diff);
+      if (r.bots) bits.push(r.bots + " BOTS");
+      info.textContent = bits.join(" · ");
+      meta.append(host, info);
+      const go = document.createElement("span");
+      go.className = "lobby-go";
+      go.textContent = full ? "FULL" : "JOIN";
+      row.append(code, meta, go);
+      el.appendChild(row);
+    }
+  }
+
+  _joinLobby(code) {
+    if ($("room-code")) $("room-code").value = String(code || "").toUpperCase();
+    this._joinRoom();
   }
 
   _createRoom() {
@@ -3054,12 +3138,18 @@ class Game {
       return;
     }
     if (msg.t === "open") {
-      if (this.online && !this.running && $("net-status")) {
-        $("net-status").textContent = "Connected. Create a room, or enter a code and JOIN.";
+      if (this.online && !this.running) {
+        if ($("net-status")) $("net-status").textContent = "Connected. Pick a lobby, or create one.";
+        this.net.watch();
       }
       return;
     }
+    if (msg.t === "lobbies") {
+      if (!this.running) this._renderLobbies(msg.rooms || []);
+      return;
+    }
     if (msg.t === "ok") {
+      this._stopLobbyWatch();
       $("net-status").textContent = "Room " + msg.code + " — share this code.";
       $("room-code").value = msg.code;
       this.startMatch({
