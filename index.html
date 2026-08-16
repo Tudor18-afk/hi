@@ -29,9 +29,11 @@
       <div id="hitmarker"></div>
 
       <div id="killfeed"></div>
+      <div id="live-board"></div>
 
       <div id="top-center">
-        <div class="frag-limit">FRAG LIMIT <b id="frag-limit">20</b></div>
+        <div id="round-timer">5:00</div>
+        <div class="frag-limit">ROUND <b id="round-num">1</b></div>
         <div id="lead-chip">LEAD · <span id="lead-name">—</span> <span id="lead-score">0</span></div>
         <div id="match-meta"><span id="map-name-hud">WAREHOUSE</span> · <span id="diff-name-hud">NORMAL</span></div>
       </div>
@@ -49,10 +51,11 @@
       <div id="ammo-panel">
         <div id="ammo-mag">30</div>
         <div id="ammo-rest">/ 90</div>
-        <div class="meta">RIFLE · FULL AUTO</div>
+        <div class="meta" id="weapon-name">CARBINE · FULL AUTO</div>
       </div>
 
       <div id="score-chip"><b id="my-frags">0</b><span>FRAGS</span></div>
+      <div id="credit-chip">¢ <b id="credits-hud">0</b></div>
       <div id="room-chip" class="hidden">ROOM <b id="room-code-hud">----</b></div>
       <div id="banner"></div>
       <div id="look-hint" class="hidden">Click the arena to capture mouse · or drag to look</div>
@@ -94,6 +97,22 @@
       <button id="btn-resume" type="button">PLAY</button>
     </div>
 
+    <div id="shop" class="hidden">
+      <div class="shop-col">
+        <div class="eyebrow">ROUND OVER</div>
+        <h2>ARMORY</h2>
+        <div id="shop-credits">¢ 0</div>
+        <div class="pick-label">LEADERBOARD</div>
+        <div id="shop-board"></div>
+        <div id="shop-timer">NEXT ROUND 0:25</div>
+        <button id="btn-next-round" type="button">NEXT ROUND</button>
+      </div>
+      <div class="shop-col wide">
+        <div class="pick-label">BUY WEAPONS · KEYS 1–4 TO EQUIP</div>
+        <div id="shop-items"></div>
+      </div>
+    </div>
+
     <div id="match-over" class="hidden">
       <div class="eyebrow">MATCH COMPLETE</div>
       <h2 id="winner-name">YOU</h2>
@@ -108,7 +127,7 @@
         <div class="eyebrow" id="menu-eyebrow">LOCAL OR ONLINE</div>
         <h1>NEXUS<span>ARENA</span></h1>
         <p class="tag">
-          Fight AI bots, other people, or both. Set bots to 0 for humans only.
+          Fight AI bots, other people, or both. 5-minute rounds, then buy weapons in the armory.
         </p>
         <div class="mode-row">
           <button type="button" class="mode on" id="mode-local">LOCAL</button>
@@ -160,7 +179,7 @@
         </div>
         <div class="help">
           <div><kbd>WASD</kbd> move <kbd>SHIFT</kbd> sprint <kbd>SPACE</kbd> jump <kbd>C</kbd> crouch</div>
-          <div><kbd>LMB</kbd> fire <kbd>R</kbd> reload <kbd>TAB</kbd> scoreboard <kbd>ESC</kbd> pause</div>
+          <div><kbd>LMB</kbd> fire <kbd>R</kbd> reload <kbd>1-4</kbd> weapons <kbd>TAB</kbd> scoreboard</div>
         </div>
       </div>
     </div>

@@ -160,7 +160,7 @@ wss.on("connection", (ws) => {
     const from = room.clients.get(ws);
     if (!from) return;
 
-    if (msg.t === "st" || msg.t === "shot" || msg.t === "hit" || msg.t === "bst" || msg.t === "reset") {
+    if (msg.t === "st" || msg.t === "shot" || msg.t === "hit" || msg.t === "bst" || msg.t === "reset" || msg.t === "shop" || msg.t === "next") {
       msg.id = from.id;
       broadcast(room, msg, ws);
     }

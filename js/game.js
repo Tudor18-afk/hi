@@ -4,7 +4,6 @@ import { Net } from "./net.js";
 
 const CFG = {
   world: 64,
-  fragLimit: 20,
   mag: 30,
   reserve: 90,
   rpm: 650,
@@ -18,7 +17,85 @@ const CFG = {
   botWalk: 5.6,
   radius: 0.38,
   respawn: 2.5,
+  roundTime: 300,
+  shopTime: 25,
+  killCredit: 100,
+  headBonus: 50,
+  startCredit: 200,
 };
+
+const WEAPONS = {
+  rifle: {
+    id: "rifle",
+    name: "AR-15 Carbine",
+    key: "1",
+    price: 0,
+    dmg: 28,
+    rpm: 620,
+    mag: 30,
+    reserve: 90,
+    reload: 1.85,
+    spread: 0.012,
+    adsSpread: 0.0032,
+    recoil: 0.018,
+    bloom: 0.005,
+    pellets: 1,
+    auto: true,
+  },
+  smg: {
+    id: "smg",
+    name: "MP5 SMG",
+    key: "2",
+    price: 400,
+    dmg: 18,
+    rpm: 900,
+    mag: 30,
+    reserve: 90,
+    reload: 1.55,
+    spread: 0.022,
+    adsSpread: 0.007,
+    recoil: 0.012,
+    bloom: 0.004,
+    pellets: 1,
+    auto: true,
+  },
+  shotgun: {
+    id: "shotgun",
+    name: "M4 Super 90",
+    key: "3",
+    price: 650,
+    dmg: 16,
+    rpm: 90,
+    mag: 8,
+    reserve: 24,
+    reload: 2.6,
+    spread: 0.055,
+    adsSpread: 0.028,
+    recoil: 0.055,
+    bloom: 0.02,
+    pellets: 8,
+    auto: false,
+  },
+  sniper: {
+    id: "sniper",
+    name: "M24 DMR",
+    key: "4",
+    price: 900,
+    dmg: 92,
+    rpm: 48,
+    mag: 5,
+    reserve: 15,
+    reload: 2.8,
+    spread: 0.008,
+    adsSpread: 0.0006,
+    recoil: 0.04,
+    bloom: 0.012,
+    pellets: 1,
+    auto: false,
+  },
+};
+
+const WEAPON_ORDER = ["rifle", "smg", "shotgun", "sniper"];
 
 const OPERATORS = [
   { name: "RAZOR", color: 0xc23b3b },
@@ -56,6 +133,12 @@ const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const lerp = (a, b, t) => a + (b - a) * t;
 const rand = (a, b) => a + Math.random() * (b - a);
 const hex = (n) => "#" + n.toString(16).padStart(6, "0");
+
+function fmtTime(sec) {
+  const s = Math.max(0, Math.ceil(sec));
+  const m = Math.floor(s / 60);
+  return m + ":" + String(s % 60).padStart(2, "0");
+}
 
 function lerpAng(a, b, t) {
   let d = b - a;
@@ -366,41 +449,62 @@ function buildWorld(scene, mapId) {
   const themes = {
     warehouse: {
       fog: 0x0a1018,
-      floor: 0xc8d4e0,
-      hemi: [0x9eb6c8, 0x1a1410, 0.55],
-      sun: 0xd8e6ff,
+      floor: 0xd4e0ec,
+      hemi: [0xc8dcff, 0x2a2218, 1.08],
+      sun: 0xfff2d8,
+      sunI: 1.4,
       lamps: [
         [-20, -20, 0x88ddff],
         [20, -20, 0xffb347],
         [-20, 20, 0xffb347],
         [20, 20, 0x88ddff],
         [0, 0, 0x5ce1ff],
+        [-10, 0, 0xffe0a0],
+        [10, 0, 0xffe0a0],
+        [0, -10, 0xa8d8ff],
+        [0, 10, 0xa8d8ff],
+        [-12, -12, 0xffcc88],
+        [12, 12, 0xffcc88],
       ],
     },
     yard: {
-      fog: 0x10160c,
-      floor: 0xb7c4a8,
-      hemi: [0xc8d4b0, 0x1a1810, 0.62],
-      sun: 0xffe0b0,
+      fog: 0x141a10,
+      floor: 0xc8d4b8,
+      hemi: [0xd8e8c0, 0x2a2418, 1.18],
+      sun: 0xffe8c0,
+      sunI: 1.55,
       lamps: [
         [-22, -18, 0xffb347],
         [22, -18, 0xffb347],
         [-22, 18, 0x88ddff],
         [22, 18, 0x88ddff],
         [0, 0, 0xffcc66],
+        [-10, 8, 0xffe0a0],
+        [10, -8, 0xffe0a0],
+        [0, 16, 0xffd080],
+        [0, -16, 0xffd080],
+        [-16, 0, 0xa8d8ff],
+        [16, 0, 0xa8d8ff],
       ],
     },
     labs: {
-      fog: 0x0c0816,
-      floor: 0xb8c0e0,
-      hemi: [0xb0a8d8, 0x120814, 0.48],
-      sun: 0xc8b8ff,
+      fog: 0x100c1c,
+      floor: 0xc4cce8,
+      hemi: [0xc8c0f0, 0x180c1c, 0.92],
+      sun: 0xe0d4ff,
+      sunI: 1.15,
       lamps: [
         [-12, -12, 0xaa66ff],
         [12, -12, 0x5ce1ff],
         [-12, 12, 0x5ce1ff],
         [12, 12, 0xaa66ff],
         [0, 0, 0xff66aa],
+        [-20, 0, 0x88aaff],
+        [20, 0, 0x88aaff],
+        [0, -20, 0xff88cc],
+        [0, 20, 0xff88cc],
+        [-8, 8, 0x66ffff],
+        [8, -8, 0x66ffff],
       ],
     },
   };
@@ -417,7 +521,7 @@ function buildWorld(scene, mapId) {
 
   const ceil = new THREE.Mesh(
     new THREE.PlaneGeometry(CFG.world + 4, CFG.world + 4),
-    new THREE.MeshStandardMaterial({ color: 0x0b1016, roughness: 1 })
+    new THREE.MeshStandardMaterial({ color: 0x1a2430, roughness: 0.85, metalness: 0.12 })
   );
   ceil.rotation.x = Math.PI / 2;
   ceil.position.y = 8.6;
@@ -433,13 +537,13 @@ function buildWorld(scene, mapId) {
   const trimMat = new THREE.MeshStandardMaterial({
     color: 0x5ce1ff,
     emissive: 0x5ce1ff,
-    emissiveIntensity: 0.7,
+    emissiveIntensity: 1.35,
     roughness: 0.4,
   });
   const amberMat = new THREE.MeshStandardMaterial({
     color: 0xffb347,
     emissive: 0xffb347,
-    emissiveIntensity: 0.55,
+    emissiveIntensity: 1.15,
     roughness: 0.4,
   });
   const ctex = crateTex();
@@ -554,60 +658,151 @@ function buildWorld(scene, mapId) {
   for (const [x, z] of spawnPts) spawns.push(new THREE.Vector3(x, 0, z));
 
   root.add(new THREE.HemisphereLight(theme.hemi[0], theme.hemi[1], theme.hemi[2]));
-  const sun = new THREE.DirectionalLight(theme.sun, 0.7);
-  sun.position.set(18, 28, 12);
+  const sun = new THREE.DirectionalLight(theme.sun, theme.sunI || 1.4);
+  sun.position.set(18, 32, 12);
   sun.castShadow = true;
-  sun.shadow.mapSize.set(1024, 1024);
+  sun.shadow.mapSize.set(2048, 2048);
   sun.shadow.camera.near = 2;
-  sun.shadow.camera.far = 70;
-  sun.shadow.camera.left = -36;
-  sun.shadow.camera.right = 36;
-  sun.shadow.camera.top = 36;
-  sun.shadow.camera.bottom = -36;
+  sun.shadow.camera.far = 80;
+  sun.shadow.camera.left = -40;
+  sun.shadow.camera.right = 40;
+  sun.shadow.camera.top = 40;
+  sun.shadow.camera.bottom = -40;
+  sun.shadow.bias = -0.00025;
   root.add(sun);
+  const fill = new THREE.DirectionalLight(0xb8d4ff, 0.42);
+  fill.position.set(-16, 18, -12);
+  root.add(fill);
+  const bounce = new THREE.DirectionalLight(0xffe0c0, 0.22);
+  bounce.position.set(8, 6, -18);
+  root.add(bounce);
 
   for (const [x, z, col] of theme.lamps) {
-    const l = new THREE.PointLight(col, 2.4, 28, 1.6);
+    const l = new THREE.PointLight(col, 3.15, 34, 1.25);
     l.position.set(x, 6.4, z);
     root.add(l);
+    const glow = new THREE.PointLight(col, 0.7, 12, 1.8);
+    glow.position.set(x, 3.1, z);
+    root.add(glow);
     const bulb = new THREE.Mesh(
-      new THREE.BoxGeometry(0.6, 0.12, 0.6),
-      new THREE.MeshStandardMaterial({ color: col, emissive: col, emissiveIntensity: 1.4 })
+      new THREE.BoxGeometry(0.7, 0.14, 0.7),
+      new THREE.MeshStandardMaterial({ color: col, emissive: col, emissiveIntensity: 3.4 })
     );
     bulb.position.set(x, 8.2, z);
     root.add(bulb);
   }
 
   scene.background = new THREE.Color(theme.fog);
-  scene.fog = new THREE.Fog(theme.fog, 18, 72);
+  scene.fog = new THREE.Fog(theme.fog, 32, 108);
 
   return { colliders, cover, spawns, root };
 }
 
-function createRifle() {
+function matSteel(hex, rough = 0.32, metal = 0.82) {
+  return new THREE.MeshStandardMaterial({ color: hex, roughness: rough, metalness: metal });
+}
+
+function createWeapon(kind) {
   const g = new THREE.Group();
-  const black = new THREE.MeshStandardMaterial({ color: 0x1b222c, metalness: 0.65, roughness: 0.32 });
-  const accent = new THREE.MeshStandardMaterial({
-    color: 0x5ce1ff,
-    emissive: 0x5ce1ff,
-    emissiveIntensity: 0.4,
+  const black = matSteel(0x1a1c20, 0.36, 0.78);
+  const polymer = matSteel(0x2c3036, 0.64, 0.16);
+  const wood = matSteel(0x6a4428, 0.8, 0.06);
+  const brass = matSteel(0xb08a4a, 0.34, 0.72);
+  const optic = matSteel(0x101214, 0.22, 0.55);
+  const steel = matSteel(0x5a626c, 0.28, 0.88);
+
+  if (kind === "smg") {
+    g.add(meshBox(0.05, 0.09, 0.36, black, 0, -0.01, -0.1));
+    g.add(meshBox(0.048, 0.07, 0.2, polymer, 0, -0.07, -0.04));
+    g.add(meshCyl(0.01, 0.011, 0.28, black, 0, 0.0, -0.4));
+    g.add(meshCyl(0.016, 0.016, 0.1, polymer, 0, 0.0, -0.56));
+    const mag = meshBox(0.036, 0.2, 0.05, polymer, 0, -0.18, -0.02);
+    mag.rotation.x = 0.1;
+    g.add(mag);
+    g.add(meshBox(0.038, 0.048, 0.18, polymer, 0, 0.01, 0.18));
+    const grip = meshBox(0.036, 0.12, 0.046, polymer, 0, -0.12, 0.1);
+    grip.rotation.x = 0.38;
+    g.add(grip);
+    g.add(meshBox(0.016, 0.032, 0.036, optic, 0, 0.05, -0.18));
+    g.add(meshBox(0.012, 0.024, 0.016, optic, 0, 0.04, -0.28));
+  } else if (kind === "shotgun") {
+    g.add(meshBox(0.068, 0.086, 0.4, black, 0, -0.01, -0.12));
+    g.add(meshCyl(0.016, 0.018, 0.58, steel, 0, 0.012, -0.52));
+    g.add(meshCyl(0.012, 0.012, 0.44, black, 0, -0.028, -0.42));
+    g.add(meshBox(0.052, 0.052, 0.16, wood, 0, -0.05, -0.32));
+    g.add(meshBox(0.052, 0.082, 0.26, wood, 0, -0.015, 0.2));
+    const grip = meshBox(0.044, 0.11, 0.048, wood, 0, -0.11, 0.08);
+    grip.rotation.x = 0.28;
+    g.add(grip);
+    g.add(meshSphere(0.008, brass, 0, 0.032, -0.8));
+    g.add(meshBox(0.02, 0.03, 0.04, black, 0, 0.04, -0.08));
+  } else if (kind === "sniper") {
+    g.add(meshBox(0.058, 0.078, 0.46, black, 0, -0.008, -0.14));
+    g.add(meshCyl(0.01, 0.012, 0.72, steel, 0, 0.002, -0.66));
+    g.add(meshCyl(0.016, 0.014, 0.06, black, 0, 0.002, -1.02));
+    g.add(meshBox(0.038, 0.1, 0.068, polymer, 0, -0.09, -0.08));
+    g.add(meshBox(0.048, 0.088, 0.28, polymer, 0, -0.01, 0.22));
+    g.add(meshBox(0.044, 0.034, 0.12, polymer, 0, 0.048, 0.18));
+    const grip = meshBox(0.036, 0.12, 0.044, polymer, 0, -0.11, 0.06);
+    grip.rotation.x = 0.32;
+    g.add(grip);
+    g.add(meshCyl(0.022, 0.026, 0.22, optic, 0, 0.055, -0.18));
+    const glass = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.016, 0.016, 0.02, 12),
+      new THREE.MeshStandardMaterial({
+        color: 0x224466,
+        roughness: 0.1,
+        metalness: 0.45,
+        emissive: 0x112233,
+        emissiveIntensity: 0.4,
+      })
+    );
+    glass.rotation.x = Math.PI / 2;
+    glass.position.set(0, 0.055, -0.08);
+    g.add(glass);
+  } else {
+    g.add(meshBox(0.068, 0.108, 0.42, black, 0, -0.02, -0.12));
+    g.add(meshBox(0.052, 0.058, 0.18, polymer, 0, -0.068, -0.28));
+    g.add(meshCyl(0.011, 0.013, 0.46, steel, 0, 0.0, -0.52));
+    g.add(meshCyl(0.016, 0.012, 0.05, black, 0, 0.0, -0.76));
+    const mag = meshBox(0.04, 0.18, 0.062, polymer, 0, -0.15, -0.04);
+    mag.rotation.x = 0.06;
+    g.add(mag);
+    g.add(meshBox(0.048, 0.082, 0.22, polymer, 0, -0.008, 0.2));
+    const grip = meshBox(0.038, 0.125, 0.046, polymer, 0, -0.13, 0.08);
+    grip.rotation.x = 0.38;
+    g.add(grip);
+    g.add(meshBox(0.028, 0.016, 0.22, black, 0, 0.042, -0.18));
+    g.add(meshBox(0.026, 0.038, 0.058, optic, 0, 0.068, -0.22));
+    g.add(meshBox(0.012, 0.028, 0.018, optic, 0, 0.038, -0.52));
+  }
+
+  g.traverse((o) => {
+    if (o.isMesh) {
+      o.castShadow = true;
+      o.receiveShadow = true;
+    }
   });
-  const body = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.12, 0.56), black);
-  body.position.z = -0.08;
-  g.add(body);
-  const barrel = new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.035, 0.4), black);
-  barrel.position.z = -0.48;
-  g.add(barrel);
-  const mag = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.18, 0.1), black);
-  mag.position.set(0, -0.13, 0.04);
-  g.add(mag);
-  const stock = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.08, 0.22), black);
-  stock.position.set(0, 0.01, 0.3);
-  g.add(stock);
-  const sight = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.07, 0.12), accent);
-  sight.position.set(0, 0.09, -0.05);
-  g.add(sight);
   return g;
+}
+
+function meshBox(w, h, d, mat, x, y, z) {
+  const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
+  m.position.set(x, y, z);
+  return m;
+}
+
+function meshCyl(rt, rb, len, mat, x, y, z) {
+  const m = new THREE.Mesh(new THREE.CylinderGeometry(rt, rb, len, 12), mat);
+  m.rotation.x = Math.PI / 2;
+  m.position.set(x, y, z);
+  return m;
+}
+
+function meshSphere(r, mat, x, y, z) {
+  const m = new THREE.Mesh(new THREE.SphereGeometry(r, 10, 8), mat);
+  m.position.set(x, y, z);
+  return m;
 }
 
 function makeLabel(text, color) {
@@ -690,7 +885,8 @@ function createOperator(color, name) {
   rleg.add(rlegM);
   g.add(rleg);
 
-  const gun = createRifle();
+  const gun = createWeapon("rifle");
+  gun.scale.set(0.9, 0.9, 0.9);
   gun.position.set(0.22, 1.28, -0.42);
   g.add(gun);
 
@@ -734,7 +930,19 @@ class Game {
     this._netAcc = 0;
     this.running = false;
     this.paused = false;
+    if (typeof location !== "undefined" && /(?:\?|&)fast=1(?:&|$)/.test(location.search)) {
+      CFG.roundTime = 15;
+      CFG.shopTime = 10;
+    }
     this.matchOver = false;
+    this.inShop = false;
+    this.round = 1;
+    this.roundLeft = CFG.roundTime;
+    this.shopLeft = 0;
+    this.credits = CFG.startCredit;
+    this.owned = { rifle: true };
+    this.weaponId = "rifle";
+    this._firedSemi = false;
     this.time = 0;
     this.effects = [];
     this.shots = [];
@@ -747,7 +955,7 @@ class Game {
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.05;
+    this.renderer.toneMappingExposure = 1.38;
 
     this.scene = new THREE.Scene();
     this.camera = new THREE.PerspectiveCamera(78, innerWidth / innerHeight, 0.05, 120);
@@ -787,19 +995,23 @@ class Game {
 
   _makeViewmodel() {
     const root = new THREE.Group();
-    const gun = createRifle();
-    gun.scale.set(1.35, 1.35, 1.35);
+    const gun = createWeapon("rifle");
+    gun.scale.set(1.28, 1.28, 1.28);
     gun.position.set(0.32, -0.28, -0.62);
     gun.rotation.set(0.04, 0.08, -0.04);
     root.add(gun);
-    const light = new THREE.PointLight(0xffcc88, 0, 5);
+    const light = new THREE.PointLight(0xffcc88, 0, 5.5);
     light.position.set(0.32, -0.2, -1.05);
     root.add(light);
-    const fill = new THREE.PointLight(0xc8e6ff, 0.7, 2.8);
-    fill.position.set(0.12, 0.05, -0.2);
+    const fill = new THREE.PointLight(0xe8f4ff, 1.35, 3.2);
+    fill.position.set(0.08, 0.08, -0.12);
     root.add(fill);
+    const rim = new THREE.PointLight(0xffe0b0, 0.55, 2.4);
+    rim.position.set(0.4, -0.05, -0.35);
+    root.add(rim);
     this.muzzleLight = light;
     this.gunRoot = gun;
+    this.gunRestZ = -0.62;
     const flash = new THREE.Mesh(
       new THREE.PlaneGeometry(0.18, 0.18),
       new THREE.MeshBasicMaterial({
@@ -862,6 +1074,14 @@ class Game {
       e.preventDefault();
       this._resume();
     });
+    $("btn-next-round").addEventListener("click", (e) => {
+      e.preventDefault();
+      this._nextRound();
+    });
+    $("shop-items").addEventListener("click", (e) => {
+      const card = e.target.closest("[data-buy]");
+      if (card) this._buyOrEquip(card.dataset.buy);
+    });
 
     addEventListener("resize", () => {
       this.camera.aspect = innerWidth / innerHeight;
@@ -872,7 +1092,11 @@ class Game {
       this.keys.add(e.code);
       if (["Space", "Tab", "KeyR"].includes(e.code)) e.preventDefault();
       if (e.code === "Tab") $("scoreboard").classList.remove("hidden");
-      if (e.code === "Escape" && this.running && !this.matchOver) {
+      if (e.code === "Digit1") this._equipWeapon("rifle");
+      if (e.code === "Digit2") this._equipWeapon("smg");
+      if (e.code === "Digit3") this._equipWeapon("shotgun");
+      if (e.code === "Digit4") this._equipWeapon("sniper");
+      if (e.code === "Escape" && this.running && !this.matchOver && !this.inShop) {
         if (this.paused) this._resume();
         else this._pause();
       }
@@ -882,8 +1106,9 @@ class Game {
       if (e.code === "Tab") $("scoreboard").classList.add("hidden");
     });
     addEventListener("mousedown", (e) => {
-      if (e.button === 0) this.mouseDown = true;
-      if (this.running && !this.matchOver) {
+      const ui = e.target.closest("button, input, #shop, #menu, #match-over, #paused, #scoreboard");
+      if (e.button === 0) this.mouseDown = !ui && !this.inShop;
+      if (this.running && !this.matchOver && !this.inShop && !ui) {
         if (this.paused) this._resume();
         else {
           this.dragging = true;
@@ -953,7 +1178,7 @@ class Game {
     });
 
     addEventListener("touchstart", (e) => {
-      if (!this.running || this.matchOver) return;
+      if (!this.running || this.matchOver || this.inShop) return;
       if (this.paused) this._resume();
       for (const t of e.changedTouches) {
         if (t.identifier === this.touchStick.id) continue;
@@ -1003,7 +1228,7 @@ class Game {
   }
 
   _look(dx, dy, allowed) {
-    if (!allowed || !this.player || !this.player.alive || this.paused || !this.running) return;
+    if (!allowed || !this.player || !this.player.alive || this.paused || this.inShop || !this.running) return;
     this.player.yaw -= dx * this.sens * 0.0022;
     this.player.pitch -= dy * this.sens * 0.0022;
     this.player.pitch = clamp(this.player.pitch, -1.45, 1.45);
@@ -1035,7 +1260,7 @@ class Game {
   _syncLookHint() {
     const hint = $("look-hint");
     if (!hint) return;
-    const show = this.running && !this.paused && !this.matchOver && !this.pointerLocked && !this.usingTouch;
+    const show = this.running && !this.paused && !this.matchOver && !this.inShop && !this.pointerLocked && !this.usingTouch;
     hint.classList.toggle("hidden", !show);
   }
 
@@ -1134,6 +1359,8 @@ class Game {
     if (msg.t === "bst" && !this.net.host) this._applyBotStates(msg.bots || []);
     if (msg.t === "shot") this._netShot(msg);
     if (msg.t === "hit") this._netHit(msg);
+    if (msg.t === "shop") this._openShop(true);
+    if (msg.t === "next") this._nextRound(true);
     if (msg.t === "reset") this.startMatch({ keepOnline: true });
   }
 
@@ -1308,11 +1535,20 @@ class Game {
       $("match-over").classList.add("hidden");
       $("paused").classList.add("hidden");
       $("death-screen").classList.add("hidden");
+      $("shop").classList.add("hidden");
       $("hud").classList.remove("hidden");
       this.matchOver = false;
+      this.inShop = false;
       this.running = true;
       this.paused = false;
       this.time = 0;
+      this.round = 1;
+      this.roundLeft = CFG.roundTime;
+      this.shopLeft = 0;
+      this.credits = CFG.startCredit;
+      this.owned = { rifle: true };
+      this.weaponId = "rifle";
+      this._firedSemi = false;
       this.pointerLocked = false;
 
       for (const b of this.bots) if (b.rig) this.scene.remove(b.rig.group);
@@ -1353,6 +1589,9 @@ class Game {
       }
 
       this._rebuildFighters();
+      this._equipWeapon("rifle", true);
+      if ($("round-num")) $("round-num").textContent = "1";
+      if ($("credits-hud")) $("credits-hud").textContent = String(this.credits);
       const used = new Set();
       for (const f of this.fighters) {
         if (f.isRemote) continue;
@@ -1360,7 +1599,6 @@ class Game {
         used.add(f.spawnIndex);
       }
 
-      $("frag-limit").textContent = String(CFG.fragLimit);
       if (this.online && this.net.code) {
         $("room-chip").classList.remove("hidden");
         $("room-code-hud").textContent = this.net.code;
@@ -1398,6 +1636,8 @@ class Game {
       deaths: 0,
       ammo: CFG.mag,
       reserve: CFG.reserve,
+      weaponId: "rifle",
+      gunAmmo: {},
       reloadT: 0,
       shootCd: 0,
       crouching: false,
@@ -1451,8 +1691,16 @@ class Game {
     ent.vel.set(0, 0, 0);
     ent.health = ent.isPlayer || !ent.arch || ent.arch.id === "human" ? 100 : this.difficulty.hp;
     ent.alive = true;
-    ent.ammo = CFG.mag;
-    ent.reserve = CFG.reserve;
+    const w = WEAPONS[ent.weaponId] || WEAPONS.rifle;
+    if (ent.isPlayer) {
+      ent.ammo = w.mag;
+      ent.reserve = w.reserve;
+      if (!ent.gunAmmo) ent.gunAmmo = {};
+      ent.gunAmmo[w.id] = { ammo: w.mag, reserve: w.reserve };
+    } else {
+      ent.ammo = CFG.mag;
+      ent.reserve = CFG.reserve;
+    }
     ent.reloadT = 0;
     ent.yaw = yawTo(s.x, s.z, 0, 0);
     ent.pitch = 0;
@@ -1474,10 +1722,171 @@ class Game {
     this._bannerT = setTimeout(() => el.classList.remove("show"), 1400);
   }
 
+  _weapon() {
+    return WEAPONS[this.weaponId] || WEAPONS.rifle;
+  }
+
+  _saveGunAmmo() {
+    const p = this.player;
+    if (!p) return;
+    if (!p.gunAmmo) p.gunAmmo = {};
+    p.gunAmmo[p.weaponId || this.weaponId] = { ammo: p.ammo, reserve: p.reserve };
+  }
+
+  _equipWeapon(id, force = false) {
+    const w = WEAPONS[id];
+    if (!w) return;
+    if (!this.running && !force) return;
+    if (!force && !this.owned[id]) {
+      this._banner("NOT OWNED");
+      return;
+    }
+    if (this.player && this.weaponId === id && this.player.weaponId === id && !force) return;
+    if (this.player) this._saveGunAmmo();
+    this.weaponId = id;
+    if (this.player) {
+      this.player.weaponId = id;
+      this.player.reloadT = 0;
+      const saved = this.player.gunAmmo && this.player.gunAmmo[id];
+      this.player.ammo = saved ? saved.ammo : w.mag;
+      this.player.reserve = saved ? saved.reserve : w.reserve;
+    }
+    if (this.viewmodel && this.gunRoot) {
+      this.viewmodel.remove(this.gunRoot);
+      const gun = createWeapon(id);
+      gun.scale.set(1.28, 1.28, 1.28);
+      gun.position.set(0.32, -0.28, this.gunRestZ || -0.62);
+      gun.rotation.set(0.04, 0.08, -0.04);
+      this.viewmodel.add(gun);
+      this.gunRoot = gun;
+    }
+    const flashZ = id === "sniper" ? -1.55 : id === "shotgun" ? -1.42 : id === "smg" ? -1.12 : -1.22;
+    if (this.muzzleFlash) this.muzzleFlash.position.z = flashZ;
+    if (this.muzzleLight) this.muzzleLight.position.z = flashZ + 0.15;
+    if ($("weapon-name")) {
+      $("weapon-name").textContent = w.name.toUpperCase() + " · " + (w.auto ? "FULL AUTO" : "SEMI AUTO");
+    }
+    if (this.inShop) this._renderShop();
+  }
+
+  _buyOrEquip(id) {
+    const w = WEAPONS[id];
+    if (!w) return;
+    if (this.owned[id]) {
+      this._equipWeapon(id);
+      return;
+    }
+    if (this.credits < w.price) {
+      this._banner("NOT ENOUGH CREDITS");
+      return;
+    }
+    this.credits -= w.price;
+    this.owned[id] = true;
+    this._equipWeapon(id, true);
+    if ($("credits-hud")) $("credits-hud").textContent = String(this.credits);
+    this._renderShop();
+    this._banner("BOUGHT " + w.name.toUpperCase());
+  }
+
+  _ranked() {
+    return [...this.fighters].sort((a, b) => b.kills - a.kills || a.deaths - b.deaths);
+  }
+
+  _boardHtml() {
+    return this._ranked()
+      .slice(0, 8)
+      .map(
+        (f, i) =>
+          `<div class="lb-row ${f.isPlayer ? "you" : ""}"><span>${i + 1}. ${f.name}</span><b>${f.kills}–${f.deaths}</b></div>`
+      )
+      .join("");
+  }
+
+  _renderShop() {
+    if ($("shop-credits")) $("shop-credits").textContent = "¢ " + this.credits;
+    if ($("shop-board")) $("shop-board").innerHTML = this._boardHtml();
+    if ($("shop-items")) {
+      $("shop-items").innerHTML = WEAPON_ORDER.map((id) => {
+        const w = WEAPONS[id];
+        const owned = !!this.owned[id];
+        const eq = this.weaponId === id;
+        const locked = !owned && this.credits < w.price;
+        return `<button type="button" class="shop-card ${owned ? "owned" : ""} ${eq ? "equipped" : ""} ${locked ? "locked" : ""}" data-buy="${id}">
+          <div>${w.key} · ${w.name}</div>
+          <div class="stat">${w.auto ? "FULL AUTO" : "SEMI"} · ${w.dmg} DMG · ${w.rpm} RPM · MAG ${w.mag}${
+          w.pellets > 1 ? " · " + w.pellets + " PELLETS" : ""
+        }</div>
+          <div class="cost">${owned ? (eq ? "EQUIPPED" : "OWNED · EQUIP") : "¢ " + w.price}</div>
+        </button>`;
+      }).join("");
+    }
+  }
+
+  _driveRounds() {
+    return !this.online || this.net.host;
+  }
+
+  _openShop(fromNet = false) {
+    if (this.inShop) return;
+    this.inShop = true;
+    this.shopLeft = CFG.shopTime;
+    this.roundLeft = 0;
+    this.paused = false;
+    $("paused").classList.add("hidden");
+    if (document.exitPointerLock) document.exitPointerLock();
+    $("shop").classList.remove("hidden");
+    if ($("btn-next-round")) $("btn-next-round").classList.toggle("hidden", this.online && !this.net.host);
+    this._renderShop();
+    this._banner("ROUND OVER · ARMORY");
+    if (!fromNet && this.online && this.net.host) this.net.send({ t: "shop" });
+  }
+
+  _nextRound(fromNet = false) {
+    if (!this.inShop && !fromNet) return;
+    if (!fromNet && this.online && !this.net.host) return;
+    this.inShop = false;
+    $("shop").classList.add("hidden");
+    this.round += 1;
+    this.roundLeft = CFG.roundTime;
+    this.shopLeft = 0;
+    if ($("round-num")) $("round-num").textContent = String(this.round);
+    const used = new Set();
+    for (const f of this.fighters) {
+      if (f.isRemote) continue;
+      if (f.isPlayer) {
+        f.weaponId = this.weaponId;
+        f.gunAmmo = {};
+        for (const id of WEAPON_ORDER) {
+          if (this.owned[id]) {
+            const ww = WEAPONS[id];
+            f.gunAmmo[id] = { ammo: ww.mag, reserve: ww.reserve };
+          }
+        }
+      }
+      this._spawn(f, used);
+      used.add(f.spawnIndex);
+    }
+    this._equipWeapon(this.weaponId, true);
+    $("death-screen").classList.add("hidden");
+    this._banner("ROUND " + this.round);
+    this._requestLock();
+    if (!fromNet && this.online && this.net.host) this.net.send({ t: "next" });
+  }
+
+  _updateShop(dt) {
+    this.shopLeft -= dt;
+    if ($("shop-timer")) $("shop-timer").textContent = "NEXT ROUND " + fmtTime(this.shopLeft);
+    if ($("shop-credits")) $("shop-credits").textContent = "¢ " + this.credits;
+    if (this.shopLeft <= 0 && this._driveRounds()) this._nextRound();
+  }
+
   _loop(now) {
     const dt = Math.min(0.033, (now - this.last) / 1000);
     this.last = now;
-    if (this.running && !this.paused && !this.matchOver) this.update(dt);
+    if (this.running && !this.paused && !this.matchOver) {
+      if (this.inShop) this._updateShop(dt);
+      else this.update(dt);
+    }
     this.draw(dt);
     requestAnimationFrame(this._loop);
   }
@@ -1549,36 +1958,42 @@ class Game {
     };
   }
 
-  fire(ent, ox, oy, oz, dx, dy, dz, spread) {
-    dx += (Math.random() - 0.5) * 2 * spread;
-    dy += (Math.random() - 0.5) * 2 * spread;
-    dz += (Math.random() - 0.5) * 2 * spread;
-    const len = Math.hypot(dx, dy, dz) || 1;
-    dx /= len;
-    dy /= len;
-    dz /= len;
-    const hit = this.hitscan(ox, oy, oz, dx, dy, dz, 80, ent.id);
-    this._tracer(ox, oy, oz, hit.x, hit.y, hit.z);
-    this._sparks(hit.x, hit.y, hit.z);
+  fire(ent, ox, oy, oz, dx0, dy0, dz0, spread, opts = {}) {
+    const pellets = opts.pellets || 1;
+    const shotDmg = opts.dmg != null ? opts.dmg : CFG.damage;
     const dist = ent.isPlayer ? 0 : this.player ? this.player.pos.distanceTo(ent.pos) : 8;
     this.audio.shoot(dist);
     this._alert(ent.pos, ent);
     if (this.online && this.net.connected && ent.isPlayer) {
-      this.net.send({ t: "shot", ox, oy, oz, dx, dy, dz });
+      this.net.send({ t: "shot", ox, oy, oz, dx: dx0, dy: dy0, dz: dz0 });
     }
-    if (hit.ent) {
-      const dmgBase = CFG.damage * (hit.head ? CFG.headMult : 1) * rand(0.92, 1.05);
-      const dmg = ent.isPlayer ? dmgBase : dmgBase * this.difficulty.dmg;
-      if (this.online && hit.ent.isRemote && ent.isPlayer) {
-        this._hitmarker(hit.head);
-        if (hit.head) this.audio.headshot();
-        else this.audio.hit();
-        this.net.send({ t: "hit", tid: hit.ent.id, dmg, head: !!hit.head });
-      } else {
-        this.hurt(hit.ent, dmg, ent, hit.head, hit);
+    let last = null;
+    for (let i = 0; i < pellets; i++) {
+      let dx = dx0 + (Math.random() - 0.5) * 2 * spread;
+      let dy = dy0 + (Math.random() - 0.5) * 2 * spread;
+      let dz = dz0 + (Math.random() - 0.5) * 2 * spread;
+      const len = Math.hypot(dx, dy, dz) || 1;
+      dx /= len;
+      dy /= len;
+      dz /= len;
+      const hit = this.hitscan(ox, oy, oz, dx, dy, dz, 80, ent.id);
+      this._tracer(ox, oy, oz, hit.x, hit.y, hit.z);
+      if (i === 0 || pellets <= 3) this._sparks(hit.x, hit.y, hit.z);
+      if (hit.ent) {
+        const dmgBase = shotDmg * (hit.head ? CFG.headMult : 1) * rand(0.92, 1.05);
+        const dmg = ent.isPlayer ? dmgBase : dmgBase * this.difficulty.dmg;
+        if (this.online && hit.ent.isRemote && ent.isPlayer) {
+          this._hitmarker(hit.head);
+          if (hit.head) this.audio.headshot();
+          else this.audio.hit();
+          this.net.send({ t: "hit", tid: hit.ent.id, dmg, head: !!hit.head });
+        } else {
+          this.hurt(hit.ent, dmg, ent, hit.head, hit);
+        }
       }
+      last = hit;
     }
-    return hit;
+    return last;
   }
 
   _alert(pos, source) {
@@ -1644,14 +2059,19 @@ class Game {
     ent.respawnT = CFG.respawn;
     ent.deathT = 0;
     ent.vel.set(0, 0, 0);
-    if (attacker && attacker !== ent) attacker.kills += 1;
+    if (attacker && attacker !== ent) {
+      attacker.kills += 1;
+      if (attacker.isPlayer) {
+        this.credits += CFG.killCredit + (head ? CFG.headBonus : 0);
+        if ($("credits-hud")) $("credits-hud").textContent = String(this.credits);
+      }
+    }
     this.audio.death();
     this._feed(attacker, ent, head);
     if (ent.isPlayer) {
       $("death-screen").classList.remove("hidden");
       $("killed-by").textContent = attacker ? `eliminated by ${attacker.name}` : "eliminated";
     }
-    if (attacker && attacker.kills >= CFG.fragLimit) this._end(attacker);
   }
 
   _feed(attacker, victim, head) {
@@ -1717,6 +2137,11 @@ class Game {
 
   update(dt) {
     this.time += dt;
+    this.roundLeft -= dt;
+    if (this.roundLeft <= 0) {
+      this._openShop();
+      return;
+    }
     if (this.player) this._updatePlayer(dt);
     for (const b of this.bots) this._updateBot(b, dt);
     this._separate();
@@ -1881,55 +2306,66 @@ class Game {
     p.shootCd -= dt;
     p.bloom = Math.max(0, p.bloom - dt * 0.085);
     p.recoil = lerp(p.recoil, 0, 1 - Math.exp(-10 * dt));
-    if (this.keys.has("KeyR") && p.reloadT <= 0 && p.ammo < CFG.mag && p.reserve > 0) {
-      p.reloadT = CFG.reload;
+    const w = this._weapon();
+    if (this.keys.has("KeyR") && p.reloadT <= 0 && p.ammo < w.mag && p.reserve > 0) {
+      p.reloadT = w.reload;
       this.audio.reload();
     }
     if (p.reloadT > 0) {
       p.reloadT -= dt;
       if (p.reloadT <= 0) {
-        const need = CFG.mag - p.ammo;
+        const need = w.mag - p.ammo;
         const take = Math.min(need, p.reserve);
         p.ammo += take;
         p.reserve -= take;
+        this._saveGunAmmo();
       }
     }
 
+    const holding = this.mouseDown || this.touchFire;
+    if (!holding) this._firedSemi = false;
+    const trigger = w.auto ? holding : holding && !this._firedSemi;
     const canFire =
-      (this.mouseDown || this.touchFire) &&
+      trigger &&
       p.reloadT <= 0 &&
       p.ammo > 0 &&
       p.shootCd <= 0 &&
-      !this.paused;
+      !this.paused &&
+      !this.inShop;
     $("crosshair").classList.toggle("firing", canFire);
     if (canFire) {
+      this._firedSemi = true;
       p.ammo -= 1;
-      p.shootCd = 60 / CFG.rpm;
-      p.recoil += 0.018;
-      p.bloom = Math.min(0.045, p.bloom + 0.005);
+      p.shootCd = 60 / w.rpm;
+      p.recoil += w.recoil;
+      p.bloom = Math.min(0.055, p.bloom + w.bloom);
       this.camera.updateMatrixWorld();
       const origin = new THREE.Vector3();
       const dir = new THREE.Vector3();
       this.camera.getWorldPosition(origin);
       this.camera.getWorldDirection(dir);
+      const hip = p.crouching ? w.adsSpread : w.spread;
       const spread =
-        0.007 +
+        hip +
         p.bloom +
-        (moving ? 0.018 : 0) +
-        (p.grounded ? 0 : 0.025) +
-        (p.crouching ? -0.004 : 0);
-      this.fire(p, origin.x, origin.y, origin.z, dir.x, dir.y, dir.z, Math.max(0.002, spread));
-      this.muzzleLight.intensity = 2.8;
+        (moving ? 0.016 : 0) +
+        (p.grounded ? 0 : 0.022);
+      this.fire(p, origin.x, origin.y, origin.z, dir.x, dir.y, dir.z, Math.max(0.0004, spread), {
+        pellets: w.pellets,
+        dmg: w.dmg,
+      });
+      this.muzzleLight.intensity = w.pellets > 1 ? 4.4 : 3.1;
       this.muzzleFlash.material.opacity = 1;
-      this.gunRoot.position.z = -0.58;
+      this.gunRoot.position.z = (this.gunRestZ || -0.62) + 0.045;
+      this._saveGunAmmo();
       if (p.ammo === 0 && p.reserve > 0) {
-        p.reloadT = CFG.reload;
+        p.reloadT = w.reload;
         this.audio.reload();
       }
     } else {
       this.muzzleLight.intensity = lerp(this.muzzleLight.intensity, 0, 0.35);
       this.muzzleFlash.material.opacity = lerp(this.muzzleFlash.material.opacity, 0, 0.4);
-      this.gunRoot.position.z = lerp(this.gunRoot.position.z, -0.62, 0.2);
+      this.gunRoot.position.z = lerp(this.gunRoot.position.z, this.gunRestZ || -0.62, 0.2);
     }
 
     const sway = Math.sin(p.walkPhase) * (moving ? 0.018 : 0.004);
@@ -2196,9 +2632,20 @@ class Game {
     $("ammo-mag").classList.toggle("empty", p.ammo === 0);
     $("ammo-rest").textContent = `/ ${p.reserve}`;
     $("my-frags").textContent = String(p.kills);
-    const ranked = [...this.fighters].sort((a, b) => b.kills - a.kills || a.deaths - b.deaths);
+    if ($("credits-hud")) $("credits-hud").textContent = String(this.credits);
+    if ($("round-timer")) {
+      $("round-timer").textContent = fmtTime(this.roundLeft);
+      $("round-timer").classList.toggle("low", this.roundLeft <= 30);
+    }
+    if ($("round-num")) $("round-num").textContent = String(this.round);
+    const ranked = this._ranked();
     $("lead-name").textContent = ranked[0] ? ranked[0].name : "—";
     $("lead-score").textContent = ranked[0] ? String(ranked[0].kills) : "0";
+    if ($("live-board")) $("live-board").innerHTML = this._boardHtml();
+    const w = this._weapon();
+    if ($("weapon-name")) {
+      $("weapon-name").textContent = w.name.toUpperCase() + " · " + (w.auto ? "FULL AUTO" : "SEMI AUTO");
+    }
     if ($("map-name-hud")) $("map-name-hud").textContent = MAPS[this.mapId] ? MAPS[this.mapId].name : this.mapId;
     if ($("diff-name-hud")) $("diff-name-hud").textContent = this.difficulty.name;
     const body = $("sb-body");
