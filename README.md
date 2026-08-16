@@ -4,13 +4,14 @@ A first-person deathmatch against AI operators. You drop into a warehouse killbo
 
 ## Play
 
-Serve the folder (modules need a local server) and open it in a browser:
+This is a single-player match against AI bots. There is no online lobby or join code.
 
-```bash
-python3 -m http.server 8080
-```
-
-Then visit [http://localhost:8080](http://localhost:8080).
+1. Serve the folder (browsers need a local server for the game files):
+   ```bash
+   python3 -m http.server 8080
+   ```
+2. Open [http://localhost:8080](http://localhost:8080)
+3. Click **PLAY**. The match starts immediately — mouse lock is optional. On a phone, use the on-screen stick and FIRE button.
 
 ## Controls
 

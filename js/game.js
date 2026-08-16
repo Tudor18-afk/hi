@@ -682,6 +682,13 @@ class Game {
     this.player = null;
     this.bots = [];
     this.fighters = [];
+    this.pointerLocked = false;
+    this.dragging = false;
+    this.touchStick = { active: false, id: null, x: 0, y: 0, nx: 0, ny: 0 };
+    this.touchLook = { id: null, x: 0, y: 0 };
+    this.touchFire = false;
+    this.touchJump = false;
+    this.usingTouch = false;
 
     this._bind();
     this._loop = this._loop.bind(this);
@@ -729,8 +736,19 @@ class Game {
       this.botCount = parseInt(e.target.value, 10);
       $("bots-val").textContent = String(this.botCount);
     });
-    $("btn-start").addEventListener("click", () => this.startMatch());
-    $("btn-again").addEventListener("click", () => this.startMatch());
+    $("btn-start").addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      this.startMatch();
+    });
+    $("btn-again").addEventListener("click", (e) => {
+      e.preventDefault();
+      this.startMatch();
+    });
+    $("btn-resume").addEventListener("click", (e) => {
+      e.preventDefault();
+      this._resume();
+    });
 
     addEventListener("resize", () => {
       this.camera.aspect = innerWidth / innerHeight;
@@ -741,6 +759,10 @@ class Game {
       this.keys.add(e.code);
       if (["Space", "Tab", "KeyR"].includes(e.code)) e.preventDefault();
       if (e.code === "Tab") $("scoreboard").classList.remove("hidden");
+      if (e.code === "Escape" && this.running && !this.matchOver) {
+        if (this.paused) this._resume();
+        else this._pause();
+      }
     });
     addEventListener("keyup", (e) => {
       this.keys.delete(e.code);
@@ -748,70 +770,219 @@ class Game {
     });
     addEventListener("mousedown", (e) => {
       if (e.button === 0) this.mouseDown = true;
-      if (this.running && !this.matchOver && document.pointerLockElement !== $("view")) {
-        $("view").requestPointerLock();
+      if (this.running && !this.matchOver) {
+        if (this.paused) this._resume();
+        else {
+          this.dragging = true;
+          this._requestLock();
+        }
       }
     });
     addEventListener("mouseup", (e) => {
       if (e.button === 0) this.mouseDown = false;
+      this.dragging = false;
     });
     addEventListener("mousemove", (e) => {
-      if (document.pointerLockElement !== $("view") || !this.player || !this.player.alive) return;
-      this.player.yaw -= e.movementX * this.sens * 0.0022;
-      this.player.pitch -= e.movementY * this.sens * 0.0022;
-      this.player.pitch = clamp(this.player.pitch, -1.45, 1.45);
+      this._look(e.movementX, e.movementY, this.pointerLocked || this.dragging);
     });
     document.addEventListener("pointerlockchange", () => {
-      if (!this.running || this.matchOver) return;
-      const locked = document.pointerLockElement === $("view");
-      this.paused = !locked;
-      $("paused").classList.toggle("hidden", locked);
+      this.pointerLocked = document.pointerLockElement === $("view");
+      if (this.pointerLocked && this.paused) this._resume();
+      this._syncLookHint();
+    });
+    document.addEventListener("pointerlockerror", () => {
+      this.pointerLocked = false;
+      this._syncLookHint();
     });
     $("view").addEventListener("contextmenu", (e) => e.preventDefault());
+    this._bindTouch();
+  }
+
+  _bindTouch() {
+    const stick = $("stick");
+    const fire = $("touch-fire");
+    const jump = $("touch-jump");
+    const showTouch = () => {
+      this.usingTouch = true;
+      $("touch-ui").classList.remove("hidden");
+    };
+    addEventListener("touchstart", showTouch, { once: true, passive: true });
+
+    const setKnob = (nx, ny) => {
+      $("stick-knob").style.transform = `translate(${nx * 32}px, ${ny * 32}px)`;
+    };
+
+    stick.addEventListener("touchstart", (e) => {
+      e.preventDefault();
+      const t = e.changedTouches[0];
+      this.touchStick.active = true;
+      this.touchStick.id = t.identifier;
+      const r = stick.getBoundingClientRect();
+      this.touchStick.x = r.left + r.width / 2;
+      this.touchStick.y = r.top + r.height / 2;
+    }, { passive: false });
+
+    fire.addEventListener("touchstart", (e) => {
+      e.preventDefault();
+      this.touchFire = true;
+      this.mouseDown = true;
+    }, { passive: false });
+    fire.addEventListener("touchend", () => {
+      this.touchFire = false;
+      this.mouseDown = false;
+    });
+    jump.addEventListener("touchstart", (e) => {
+      e.preventDefault();
+      this.touchJump = true;
+    }, { passive: false });
+    jump.addEventListener("touchend", () => {
+      this.touchJump = false;
+    });
+
+    addEventListener("touchstart", (e) => {
+      if (!this.running || this.matchOver) return;
+      if (this.paused) this._resume();
+      for (const t of e.changedTouches) {
+        if (t.identifier === this.touchStick.id) continue;
+        const el = document.elementFromPoint(t.clientX, t.clientY);
+        if (el && (el.id === "touch-fire" || el.id === "touch-jump" || el.closest("#stick"))) continue;
+        if (this.touchLook.id == null) {
+          this.touchLook.id = t.identifier;
+          this.touchLook.x = t.clientX;
+          this.touchLook.y = t.clientY;
+        }
+      }
+    }, { passive: true });
+
+    addEventListener("touchmove", (e) => {
+      for (const t of e.changedTouches) {
+        if (this.touchStick.active && t.identifier === this.touchStick.id) {
+          let nx = (t.clientX - this.touchStick.x) / 48;
+          let ny = (t.clientY - this.touchStick.y) / 48;
+          const m = Math.hypot(nx, ny);
+          if (m > 1) {
+            nx /= m;
+            ny /= m;
+          }
+          this.touchStick.nx = nx;
+          this.touchStick.ny = ny;
+          setKnob(nx, ny);
+        } else if (t.identifier === this.touchLook.id) {
+          this._look(t.clientX - this.touchLook.x, t.clientY - this.touchLook.y, true);
+          this.touchLook.x = t.clientX;
+          this.touchLook.y = t.clientY;
+        }
+      }
+    }, { passive: true });
+
+    addEventListener("touchend", (e) => {
+      for (const t of e.changedTouches) {
+        if (t.identifier === this.touchStick.id) {
+          this.touchStick.active = false;
+          this.touchStick.id = null;
+          this.touchStick.nx = 0;
+          this.touchStick.ny = 0;
+          setKnob(0, 0);
+        }
+        if (t.identifier === this.touchLook.id) this.touchLook.id = null;
+      }
+    });
+  }
+
+  _look(dx, dy, allowed) {
+    if (!allowed || !this.player || !this.player.alive || this.paused || !this.running) return;
+    this.player.yaw -= dx * this.sens * 0.0022;
+    this.player.pitch -= dy * this.sens * 0.0022;
+    this.player.pitch = clamp(this.player.pitch, -1.45, 1.45);
+  }
+
+  _requestLock() {
+    const canvas = $("view");
+    if (!canvas.requestPointerLock) return;
+    try {
+      const ret = canvas.requestPointerLock();
+      if (ret && typeof ret.catch === "function") ret.catch(() => {});
+    } catch (_) {
+      /* pointer lock is optional */
+    }
+  }
+
+  _pause() {
+    this.paused = true;
+    $("paused").classList.remove("hidden");
+    if (document.exitPointerLock) document.exitPointerLock();
+  }
+
+  _resume() {
+    this.paused = false;
+    $("paused").classList.add("hidden");
+    this._requestLock();
+  }
+
+  _syncLookHint() {
+    const hint = $("look-hint");
+    if (!hint) return;
+    const show = this.running && !this.paused && !this.matchOver && !this.pointerLocked && !this.usingTouch;
+    hint.classList.toggle("hidden", !show);
   }
 
   startMatch() {
-    this.audio.init();
-    this.sens = parseFloat($("sens").value);
-    this.botCount = parseInt($("bots").value, 10);
-    $("menu").classList.add("hidden");
-    $("match-over").classList.add("hidden");
-    $("paused").classList.add("hidden");
-    $("death-screen").classList.add("hidden");
-    $("hud").classList.remove("hidden");
-    this.matchOver = false;
-    this.running = true;
-    this.paused = false;
-    this.time = 0;
-
-    for (const b of this.bots) this.scene.remove(b.rig.group);
-    for (const e of this.effects) this.scene.remove(e.mesh);
-    this.bots = [];
-    this.effects.length = 0;
-
-    this.player = this._makeFighter("YOU", 0x5ce1ff, true);
-    this.bots = [];
-    for (let i = 0; i < this.botCount; i++) {
-      const op = OPERATORS[i % OPERATORS.length];
-      const bot = this._makeFighter(op.name, op.color, false);
-      bot.arch = ARCHETYPES[i % ARCHETYPES.length];
-      bot.strafeDir = Math.random() < 0.5 ? 1 : -1;
-      const rig = createOperator(op.color, op.name);
-      this.scene.add(rig.group);
-      bot.rig = rig;
-      this.bots.push(bot);
+    try {
+      this.audio.init();
+    } catch (_) {
+      /* audio optional */
     }
-    this.fighters = [this.player, ...this.bots];
-    const used = new Set();
-    for (const f of this.fighters) {
-      this._spawn(f, used);
-      used.add(f.spawnIndex);
-    }
+    try {
+      this.sens = parseFloat($("sens").value);
+      this.botCount = parseInt($("bots").value, 10);
+      $("menu").classList.add("hidden");
+      $("match-over").classList.add("hidden");
+      $("paused").classList.add("hidden");
+      $("death-screen").classList.add("hidden");
+      $("hud").classList.remove("hidden");
+      this.matchOver = false;
+      this.running = true;
+      this.paused = false;
+      this.time = 0;
+      this.pointerLocked = false;
 
-    $("frag-limit").textContent = String(CFG.fragLimit);
-    this._banner("FIGHT");
-    this.audio.spawn();
-    $("view").requestPointerLock();
+      for (const b of this.bots) this.scene.remove(b.rig.group);
+      for (const e of this.effects) this.scene.remove(e.mesh);
+      this.bots = [];
+      this.effects.length = 0;
+
+      this.player = this._makeFighter("YOU", 0x5ce1ff, true);
+      this.bots = [];
+      for (let i = 0; i < this.botCount; i++) {
+        const op = OPERATORS[i % OPERATORS.length];
+        const bot = this._makeFighter(op.name, op.color, false);
+        bot.arch = ARCHETYPES[i % ARCHETYPES.length];
+        bot.strafeDir = Math.random() < 0.5 ? 1 : -1;
+        const rig = createOperator(op.color, op.name);
+        this.scene.add(rig.group);
+        bot.rig = rig;
+        this.bots.push(bot);
+      }
+      this.fighters = [this.player, ...this.bots];
+      const used = new Set();
+      for (const f of this.fighters) {
+        this._spawn(f, used);
+        used.add(f.spawnIndex);
+      }
+
+      $("frag-limit").textContent = String(CFG.fragLimit);
+      this._banner("FIGHT");
+      try {
+        this.audio.spawn();
+      } catch (_) {}
+      this._syncLookHint();
+      this._requestLock();
+    } catch (err) {
+      console.error(err);
+      $("menu").classList.remove("hidden");
+      const tag = document.querySelector("#menu .tag");
+      if (tag) tag.textContent = "Could not start the match. Try Chrome or Firefox on a computer.";
+    }
   }
 
   _makeFighter(name, color, isPlayer) {
@@ -1261,10 +1432,14 @@ class Game {
     const sprint = this.keys.has("ShiftLeft") || this.keys.has("ShiftRight");
     let ix = 0;
     let iz = 0;
-    if (this.keys.has("KeyW")) iz -= 1;
-    if (this.keys.has("KeyS")) iz += 1;
-    if (this.keys.has("KeyA")) ix -= 1;
-    if (this.keys.has("KeyD")) ix += 1;
+    if (this.keys.has("KeyW") || this.keys.has("ArrowUp")) iz -= 1;
+    if (this.keys.has("KeyS") || this.keys.has("ArrowDown")) iz += 1;
+    if (this.keys.has("KeyA") || this.keys.has("ArrowLeft")) ix -= 1;
+    if (this.keys.has("KeyD") || this.keys.has("ArrowRight")) ix += 1;
+    if (this.touchStick.active) {
+      ix += this.touchStick.nx;
+      iz += this.touchStick.ny;
+    }
     const fl = Math.hypot(ix, iz) || 1;
     ix /= fl;
     iz /= fl;
@@ -1277,7 +1452,7 @@ class Game {
     let speed = p.crouching ? CFG.walk * 0.55 : sprint && iz < 0 ? CFG.sprint : CFG.walk;
     if (!p.grounded) speed *= 0.85;
     this._moveWish(p, wx, wz, speed, dt);
-    if (this.keys.has("Space") && p.grounded) p.vel.y = CFG.jump;
+    if ((this.keys.has("Space") || this.touchJump) && p.grounded) p.vel.y = CFG.jump;
 
     const moving = Math.hypot(p.vel.x, p.vel.z) > 1.2 && p.grounded;
     if (moving) {
@@ -1307,11 +1482,11 @@ class Game {
     }
 
     const canFire =
-      this.mouseDown &&
+      (this.mouseDown || this.touchFire) &&
       p.reloadT <= 0 &&
       p.ammo > 0 &&
       p.shootCd <= 0 &&
-      document.pointerLockElement === $("view");
+      !this.paused;
     $("crosshair").classList.toggle("firing", canFire);
     if (canFire) {
       p.ammo -= 1;

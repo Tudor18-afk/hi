@@ -335,9 +335,63 @@ canvas#view {
 #paused {
   background: rgba(0, 0, 0, 0.55);
   text-align: center;
+  gap: 16px;
+  pointer-events: auto;
 }
 #paused h2 { letter-spacing: 0.4em; font-size: 32px; }
-#paused p { margin-top: 10px; color: var(--muted); }
+#paused p { margin-top: 10px; color: var(--muted); max-width: 360px; }
+
+#look-hint {
+  position: absolute;
+  left: 50%;
+  bottom: 96px;
+  transform: translateX(-50%);
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  color: var(--muted);
+  text-align: center;
+}
+
+#touch-ui {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 6;
+}
+#stick {
+  pointer-events: auto;
+  position: absolute;
+  left: 28px;
+  bottom: 28px;
+  width: 120px;
+  height: 120px;
+  border: 2px solid var(--line);
+  border-radius: 50%;
+  background: rgba(8, 12, 18, 0.45);
+}
+#stick-knob {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 48px;
+  height: 48px;
+  margin: -24px 0 0 -24px;
+  border-radius: 50%;
+  background: rgba(92, 225, 255, 0.55);
+}
+#touch-fire, #touch-jump {
+  pointer-events: auto;
+  position: absolute;
+  right: 28px;
+  width: 88px;
+  height: 88px;
+  border-radius: 50%;
+  letter-spacing: 0.12em;
+  padding: 0;
+}
+#touch-fire { bottom: 28px; }
+#touch-jump { bottom: 128px; background: rgba(255, 179, 71, 0.12); border-color: var(--amber); color: var(--amber); }
 
 #match-over {
   background: rgba(4, 8, 14, 0.88);
