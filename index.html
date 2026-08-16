@@ -288,7 +288,7 @@
             <button type="button" class="mode" data-game="koth">KING HILL</button>
           </div>
         </div>
-        <div class="pick-block hidden" id="team-block">
+        <div class="pick-block" id="team-block">
           <div class="pick-label">YOUR TEAM</div>
           <div class="mode-row wrap" id="team-row">
             <button type="button" class="mode on team-alpha" data-team="0">ALPHA</button>
@@ -321,5 +321,15 @@
     </div>
   </div>
   <script type="module" src="js/game.js"></script>
+  <script>
+    window.addEventListener("error", (ev) => {
+      const tag = document.querySelector("#menu .tag");
+      if (!tag || tag.dataset.err) return;
+      const src = String(ev.filename || ev.message || "");
+      if (!/game\.js|humans\.js|net\.js|GLTFLoader|three\.module/.test(src) && !ev.message) return;
+      tag.dataset.err = "1";
+      tag.textContent = "Menu should still work — if buttons do nothing, hard-refresh. " + (ev.message || "");
+    });
+  </script>
 </body>
 </html>

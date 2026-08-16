@@ -2061,39 +2061,46 @@ class Game {
     this.effects = [];
     this.shots = [];
     this.idSeq = 1;
+    this._bind();
 
-    this.renderer = new THREE.WebGLRenderer({
-      canvas: $("view"),
-      antialias: (devicePixelRatio || 1) < 1.4,
-      powerPreference: "high-performance",
-      stencil: false,
-    });
-    this.renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 1.25));
-    this.renderer.setSize(innerWidth, innerHeight);
-    this.renderer.shadowMap.enabled = true;
-    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-    this.renderer.outputColorSpace = THREE.SRGBColorSpace;
-    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.28;
+    try {
+      this.renderer = new THREE.WebGLRenderer({
+        canvas: $("view"),
+        antialias: (devicePixelRatio || 1) < 1.4,
+        powerPreference: "high-performance",
+        stencil: false,
+      });
+      this.renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 1.25));
+      this.renderer.setSize(innerWidth, innerHeight);
+      this.renderer.shadowMap.enabled = true;
+      this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      this.renderer.outputColorSpace = THREE.SRGBColorSpace;
+      this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      this.renderer.toneMappingExposure = 1.28;
 
-    this.scene = new THREE.Scene();
-    this.camera = new THREE.PerspectiveCamera(78, innerWidth / innerHeight, 0.05, 240);
-    this.camera.rotation.order = "YXZ";
+      this.scene = new THREE.Scene();
+      this.camera = new THREE.PerspectiveCamera(78, innerWidth / innerHeight, 0.05, 240);
+      this.camera.rotation.order = "YXZ";
 
-    this._loadMap("warehouse");
+      this._loadMap("warehouse");
 
-    this.tracerMat = new THREE.MeshBasicMaterial({ color: 0xffe08a, transparent: true, opacity: 0.85 });
-    this.sparkGeo = new THREE.SphereGeometry(0.035, 6, 6);
-    this.sparkMat = new THREE.MeshBasicMaterial({ color: 0xffaa55 });
-    this.tracerGeo = new THREE.CylinderGeometry(0.012, 0.012, 1, 5);
+      this.tracerMat = new THREE.MeshBasicMaterial({ color: 0xffe08a, transparent: true, opacity: 0.85 });
+      this.sparkGeo = new THREE.SphereGeometry(0.035, 6, 6);
+      this.sparkMat = new THREE.MeshBasicMaterial({ color: 0xffaa55 });
+      this.tracerGeo = new THREE.CylinderGeometry(0.012, 0.012, 1, 5);
 
-    this.viewmodel = this._makeViewmodel();
-    this._rebuildViewArms();
-    this.viewmodel.visible = false;
-    this.camera.add(this.viewmodel);
-    this.scene.add(this.camera);
-    this.camera.position.set(26, 12.5, 26);
-    this.camera.lookAt(0, 2.2, 0);
+      this.viewmodel = this._makeViewmodel();
+      this._rebuildViewArms();
+      this.viewmodel.visible = false;
+      this.camera.add(this.viewmodel);
+      this.scene.add(this.camera);
+      this.camera.position.set(26, 12.5, 26);
+      this.camera.lookAt(0, 2.2, 0);
+    } catch (err) {
+      console.error(err);
+      const tag = document.querySelector("#menu .tag");
+      if (tag) tag.textContent = "Graphics failed to start, but the menu still works. Try Chrome or Firefox.";
+    }
 
     this.player = null;
     this.bots = [];
@@ -2107,7 +2114,7 @@ class Game {
     this.touchJump = false;
     this.usingTouch = false;
 
-    this._bind();
+    this._bindInput();
     this._bindSettings();
     this._applyXhair();
     this._syncLookUI();
@@ -2258,8 +2265,11 @@ class Game {
       const card = e.target.closest("[data-buy]");
       if (card) this._buyOrEquip(card.dataset.buy);
     });
+  }
 
+  _bindInput() {
     addEventListener("resize", () => {
+      if (!this.camera || !this.renderer) return;
       this.camera.aspect = innerWidth / innerHeight;
       this.camera.updateProjectionMatrix();
       this.renderer.setSize(innerWidth, innerHeight);
@@ -2332,7 +2342,7 @@ class Game {
       this.pointerLocked = false;
       this._syncLookHint();
     });
-    $("view").addEventListener("contextmenu", (e) => e.preventDefault());
+    if ($("view")) $("view").addEventListener("contextmenu", (e) => e.preventDefault());
     addEventListener("contextmenu", (e) => {
       if (this.running) e.preventDefault();
     });
@@ -2582,25 +2592,29 @@ class Game {
   }
 
   _poseViewHands(id) {
-    const arms = this.viewArms;
-    const gun = this.gunRoot;
-    if (!arms || !gun || !arms.userData) return;
-    const grip = VIEW_GRIP[id] || VIEW_GRIP.rifle;
-    const rh = arms.userData.rightHand;
-    const lh = arms.userData.leftHand;
-    if (!rh || !lh) return;
-    gun.updateMatrixWorld(true);
-    const place = (hand, pos, rot) => {
-      _handWorld.set(pos[0], pos[1], pos[2]);
-      gun.localToWorld(_handWorld);
-      if (this.viewmodel) this.viewmodel.worldToLocal(_handWorld);
-      hand.position.copy(_handWorld);
-      hand.rotation.set(rot[0], rot[1], rot[2]);
-      hand.quaternion.premultiply(gun.quaternion);
-    };
-    place(rh, grip.rPos, grip.rRot);
-    place(lh, grip.lPos, grip.lRot);
-    this._stretchViewArms();
+    try {
+      const arms = this.viewArms;
+      const gun = this.gunRoot;
+      if (!arms || !gun || !arms.userData) return;
+      const grip = VIEW_GRIP[id] || VIEW_GRIP.rifle;
+      const rh = arms.userData.rightHand;
+      const lh = arms.userData.leftHand;
+      if (!rh || !lh) return;
+      gun.updateMatrixWorld(true);
+      const place = (hand, pos, rot) => {
+        _handWorld.set(pos[0], pos[1], pos[2]);
+        gun.localToWorld(_handWorld);
+        if (this.viewmodel) this.viewmodel.worldToLocal(_handWorld);
+        hand.position.copy(_handWorld);
+        hand.rotation.set(rot[0], rot[1], rot[2]);
+        hand.quaternion.premultiply(gun.quaternion);
+      };
+      place(rh, grip.rPos, grip.rRot);
+      place(lh, grip.lPos, grip.lRot);
+      this._stretchViewArms();
+    } catch (err) {
+      console.warn("view arms", err);
+    }
   }
 
   _stretchViewArms() {
@@ -2932,7 +2946,10 @@ class Game {
   }
 
   _syncTeamPick() {
-    if ($("team-block")) $("team-block").classList.toggle("hidden", !this._isTeamMode() && !this.online);
+    const el = $("team-block");
+    if (!el) return;
+    el.classList.remove("hidden");
+    el.style.opacity = this._isTeamMode() || this.online ? "1" : "0.55";
   }
 
   _setWantTeam(id) {
@@ -3169,7 +3186,7 @@ class Game {
   }
 
   _setMap(id) {
-    if (this.running) return;
+    if (this.running || !this.scene) return;
     const map = MAPS[id] ? id : "warehouse";
     for (const btn of $("map-row").querySelectorAll("[data-map]")) {
       btn.classList.toggle("on", btn.dataset.map === map);
@@ -3552,6 +3569,11 @@ class Game {
   }
 
   startMatch(opts = {}) {
+    if (!this.scene || !this.renderer || !this.camera) {
+      const tag = document.querySelector("#menu .tag");
+      if (tag) tag.textContent = "Graphics are not ready yet. Refresh and try again.";
+      return;
+    }
     try {
       this.audio.init();
     } catch (_) {
@@ -3986,7 +4008,7 @@ class Game {
       if (this.inShop) this._updateShop(dt);
       else this.update(dt);
     }
-    this.draw(dt);
+    if (this.renderer && this.scene && this.camera) this.draw(dt);
     requestAnimationFrame(this._loop);
   }
 
