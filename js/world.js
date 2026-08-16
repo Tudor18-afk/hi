@@ -36,10 +36,11 @@ export function createWorld(scene) {
   scene.background = new THREE.Color(CONFIG.fogColor);
   scene.fog = new THREE.FogExp2(CONFIG.fogColor, CONFIG.fogDensity);
 
-  const hemi = new THREE.HemisphereLight(0x4a5570, 0x1a120c, 0.45);
+  const hemi = new THREE.HemisphereLight(0xc5d0e6, 0x3a3228, 1.15);
   scene.add(hemi);
+  scene.add(new THREE.AmbientLight(0xfff0dc, 0.42));
 
-  const moon = new THREE.DirectionalLight(0x9aa8c8, 0.55);
+  const moon = new THREE.DirectionalLight(0xe8eef8, 1.55);
   moon.position.set(-30, 40, 18);
   moon.castShadow = true;
   moon.shadow.mapSize.set(2048, 2048);
@@ -54,7 +55,7 @@ export function createWorld(scene) {
   const ground = new THREE.Mesh(
     new THREE.PlaneGeometry(120, 120),
     new THREE.MeshStandardMaterial({
-      map: noiseTexture(128, [28, 26, 22], [48, 44, 34]),
+      map: noiseTexture(128, [58, 54, 46], [92, 84, 68]),
       roughness: 1,
     })
   );
@@ -62,7 +63,7 @@ export function createWorld(scene) {
   ground.receiveShadow = true;
   scene.add(ground);
 
-  const roadMat = new THREE.MeshStandardMaterial({ color: 0x1a1917, roughness: 1 });
+  const roadMat = new THREE.MeshStandardMaterial({ color: 0x3a3834, roughness: 1 });
   const roadX = new THREE.Mesh(new THREE.PlaneGeometry(12, 120), roadMat);
   roadX.rotation.x = -Math.PI / 2;
   roadX.position.y = 0.02;
@@ -76,7 +77,7 @@ export function createWorld(scene) {
 
   const moonMesh = new THREE.Mesh(
     new THREE.SphereGeometry(6, 16, 16),
-    new THREE.MeshBasicMaterial({ color: 0xc9d2e0 })
+    new THREE.MeshBasicMaterial({ color: 0xf4f7ff })
   );
   moonMesh.position.set(-40, 38, 30);
   scene.add(moonMesh);
@@ -144,16 +145,22 @@ export function createWorld(scene) {
     [-8, -8],
     [0, 28],
     [0, -28],
+    [28, 0],
+    [-28, 0],
+    [16, 16],
+    [-16, -16],
+    [16, -16],
+    [-16, 16],
   ];
   for (const [x, z] of lampPosts) {
     props.add(boxMesh(0.18, 4.2, 0.18, x, 2.1, z, 0x151515));
     const bulb = new THREE.Mesh(
-      new THREE.SphereGeometry(0.18, 8, 8),
-      new THREE.MeshStandardMaterial({ color: 0xffd9a0, emissive: 0xffc37a, emissiveIntensity: 2 })
+      new THREE.SphereGeometry(0.22, 8, 8),
+      new THREE.MeshStandardMaterial({ color: 0xfff0c8, emissive: 0xffe08a, emissiveIntensity: 3.4 })
     );
     bulb.position.set(x, 4.25, z);
     props.add(bulb);
-    const lamp = new THREE.PointLight(0xffc27a, 2.2, 16, 1.6);
+    const lamp = new THREE.PointLight(0xffe1a8, 5.4, 26, 1.15);
     lamp.position.set(x, 4.2, z);
     scene.add(lamp);
   }

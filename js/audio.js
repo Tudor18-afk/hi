@@ -118,6 +118,17 @@ export class GameAudio {
     osc.stop(this.ctx.currentTime + 0.42);
   }
 
+  buy() {
+    if (!this.ctx) return;
+    const osc = this.ctx.createOscillator();
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(880, this.ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(1320, this.ctx.currentTime + 0.08);
+    osc.connect(this.#env(0.12, 0.14));
+    osc.start();
+    osc.stop(this.ctx.currentTime + 0.13);
+  }
+
   #noise(duration) {
     const n = Math.floor(this.ctx.sampleRate * duration);
     const buffer = this.ctx.createBuffer(1, n, this.ctx.sampleRate);

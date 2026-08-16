@@ -247,7 +247,7 @@ export class Horde {
     return { attacks, groan, waveClear: this.toSpawn <= 0 && this.aliveCount === 0 };
   }
 
-  hitScan(raycaster) {
+  hitScan(raycaster, damage) {
     const targets = [];
     for (const z of this.list) {
       if (z.dead) continue;
@@ -259,9 +259,13 @@ export class Horde {
     if (hit.distance > CONFIG.weapon.range) return null;
     const zombie = hit.object.userData.zombie;
     const isHead = hit.object.userData.part === "head";
-    const dmg = CONFIG.weapon.damage * (isHead ? CONFIG.weapon.headMultiplier : 1);
+    const dmg = damage * (isHead ? CONFIG.weapon.headMultiplier : 1);
     const killed = zombie.hit(dmg, isHead);
-    if (killed) this.kills += 1;
-    return { zombie, isHead, killed, point: hit.point };
+    let coins = 0;
+    if (killed) {
+      this.kills += 1;
+      coins = CONFIG.coins[zombie.type] + (isHead ? CONFIG.coins.headshotBonus : 0);
+    }
+    return { zombie, isHead, killed, point: hit.point, coins };
   }
 }

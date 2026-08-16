@@ -1,8 +1,8 @@
 export const CONFIG = {
   mouseSensitivity: 0.00155,
   fov: 72,
-  fogColor: 0x09080a,
-  fogDensity: 0.022,
+  fogColor: 0x2a2d34,
+  fogDensity: 0.011,
 
   player: {
     walkSpeed: 5.4,
@@ -21,6 +21,14 @@ export const CONFIG = {
     damage: 28,
     headMultiplier: 2.15,
     range: 70,
+  },
+
+  coins: {
+    walker: 10,
+    runner: 16,
+    tank: 28,
+    headshotBonus: 5,
+    waveClear: 12,
   },
 
   // World-space meters per second. Never scaled by mouse look.

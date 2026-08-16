@@ -5,7 +5,15 @@ import { resolveCircle } from "./world.js";
 export class Player {
   constructor(camera, scene) {
     this.camera = camera;
-    this.health = CONFIG.player.maxHealth;
+    this.maxHealth = CONFIG.player.maxHealth;
+    this.health = this.maxHealth;
+    this.coins = 0;
+    this.walkSpeed = CONFIG.player.walkSpeed;
+    this.sprintSpeed = CONFIG.player.sprintSpeed;
+    this.magSize = CONFIG.weapon.magSize;
+    this.fireInterval = CONFIG.weapon.fireInterval;
+    this.gunDamage = CONFIG.weapon.damage;
+    this.armor = 0;
     this.yaw = 0;
     this.pitch = 0;
     this.velocityY = 0;
@@ -28,11 +36,15 @@ export class Player {
     camera.position.set(0, 0, 0);
     scene.add(this.body);
 
-    this.flashlight = new THREE.SpotLight(0xffe6c4, 2.8, 28, Math.PI / 7.5, 0.45, 1.1);
-    this.flashlight.position.set(0.15, -0.05, 0.1);
-    this.flashlight.target.position.set(0, 0, -6);
+    this.flashlight = new THREE.SpotLight(0xfff1d6, 7.5, 42, Math.PI / 5.2, 0.35, 0.85);
+    this.flashlight.position.set(0.12, -0.02, 0.08);
+    this.flashlight.target.position.set(0, 0, -8);
     camera.add(this.flashlight);
     camera.add(this.flashlight.target);
+
+    this.fillLight = new THREE.PointLight(0xffe6c8, 2.6, 16, 1.4);
+    this.fillLight.position.set(0, 1.5, 0);
+    this.body.add(this.fillLight);
 
     this.gun = this.#makeGun();
     camera.add(this.gun);
@@ -85,7 +97,7 @@ export class Player {
     this.head.rotation.set(this.pitch, 0, 0);
 
     const sprint = this.keys.has("shift");
-    const speed = sprint ? CONFIG.player.sprintSpeed : CONFIG.player.walkSpeed;
+    const speed = sprint ? this.sprintSpeed : this.walkSpeed;
     let ix = 0;
     let iz = 0;
     if (this.keys.has("w")) iz -= 1;
@@ -142,13 +154,13 @@ export class Player {
 
   consumeShot() {
     this.mag -= 1;
-    this.shootTimer = CONFIG.weapon.fireInterval;
+    this.shootTimer = this.fireInterval;
     this.recoil = 1;
     this.muzzle.intensity = 8;
   }
 
   startReload() {
-    if (this.reloading || this.mag === CONFIG.weapon.magSize || this.reserve <= 0) return false;
+    if (this.reloading || this.mag === this.magSize || this.reserve <= 0) return false;
     this.reloading = true;
     this.reloadTimer = 1.45;
     return true;
@@ -156,15 +168,16 @@ export class Player {
 
   finishReloadIfReady() {
     if (!this.reloading || this.reloadTimer > 0) return;
-    const need = CONFIG.weapon.magSize - this.mag;
+    const need = this.magSize - this.mag;
     const take = Math.min(need, this.reserve);
     this.mag += take;
     this.reserve -= take;
     this.reloading = false;
   }
 
-  damage(amount) {
-    this.health = Math.max(0, this.health - amount);
+  takeDamage(amount) {
+    const taken = amount * (1 - this.armor);
+    this.health = Math.max(0, this.health - taken);
     this.hurtFlash = 1;
     return this.health <= 0;
   }
@@ -174,6 +187,10 @@ export class Player {
   }
 
   heal(n) {
-    this.health = Math.min(CONFIG.player.maxHealth, this.health + n);
+    this.health = Math.min(this.maxHealth, this.health + n);
+  }
+
+  addCoins(n) {
+    this.coins += n;
   }
 }

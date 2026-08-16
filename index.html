@@ -10,7 +10,7 @@
       href="https://fonts.googleapis.com/css2?family=Anton&family=IBM+Plex+Mono:wght@400;600&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="css/style.css" />
+    <link rel="stylesheet" href="css/style.css?v=2" />
     <script type="importmap">
       {
         "imports": {
@@ -27,6 +27,8 @@
       <div class="top-left">
         <div class="label">Wave</div>
         <div class="value" id="wave-val">00</div>
+        <div class="label" style="margin-top: 10px">Coins</div>
+        <div class="value coins" id="coins-val">0</div>
       </div>
       <div class="top-right">
         <div class="label">Kills</div>
@@ -71,6 +73,8 @@
           <dd>Sprint</dd>
           <dt>Space</dt>
           <dd>Jump</dd>
+          <dt>Kills</dt>
+          <dd>Coins for the shop</dd>
         </dl>
         <div class="row">
           <span>Look speed</span>
@@ -78,6 +82,21 @@
         </div>
         <p id="resume-hint" class="blurb hidden" style="margin-bottom: 16px">Click resume to lock the mouse again.</p>
         <button id="play" type="button">Click to survive</button>
+      </div>
+      <div class="panel hidden shop-panel" id="shop-screen">
+        <div class="shop-head">
+          <div>
+            <div class="eyebrow">Wave clear // restock</div>
+            <h1>SHOP</h1>
+          </div>
+          <div class="shop-wallet">
+            <div class="label">Coins</div>
+            <div class="value coins" id="shop-coins">0</div>
+          </div>
+        </div>
+        <p class="blurb">Spend what you earned. Unspent coins carry to the next wave.</p>
+        <div class="shop-grid" id="shop-items"></div>
+        <button id="shop-next" type="button">Next wave</button>
       </div>
       <div class="panel hidden" id="death-screen">
         <div class="eyebrow">You went down</div>
@@ -87,6 +106,6 @@
       </div>
     </div>
 
-    <script type="module" src="js/main.js"></script>
+    <script type="module" src="js/main.js?v=2"></script>
   </body>
 </html>
