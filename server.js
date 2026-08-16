@@ -190,6 +190,11 @@ wss.on("connection", (ws) => {
       return;
     }
 
+    if (msg.t === "quit") {
+      leave(ws);
+      return;
+    }
+
     if (msg.t === "create") {
       leave(ws);
       unwatch(ws);

@@ -664,6 +664,7 @@ canvas#view {
 }
 #paused h2 { letter-spacing: 0.4em; font-size: 32px; }
 #paused p { margin-top: 10px; color: var(--muted); max-width: 360px; }
+#paused button { min-width: 180px; }
 
 #settings {
   position: fixed;

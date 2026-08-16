@@ -21,6 +21,7 @@ const CFG = {
   roundTime: 300,
   shopTime: 25,
   killCredit: 100,
+  killAmmo: 40,
   headBonus: 50,
   startCredit: 200,
   netHz: 30,
@@ -2189,6 +2190,12 @@ class Game {
       e.preventDefault();
       this._resume();
     });
+    if ($("btn-menu")) {
+      $("btn-menu").addEventListener("click", (e) => {
+        e.preventDefault();
+        this._leaveToMenu();
+      });
+    }
     $("btn-settings-close").addEventListener("click", (e) => {
       e.preventDefault();
       this._closeSettings();
@@ -2226,6 +2233,13 @@ class Game {
         if (e.target && (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA")) return;
         e.preventDefault();
         this._toggleSettings();
+        return;
+      }
+      if (e.code === "KeyY") {
+        if (e.repeat) return;
+        if (e.target && (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA")) return;
+        e.preventDefault();
+        this._leaveToMenu();
         return;
       }
       if (e.code === "Escape" && this.inSettings) {
@@ -2416,6 +2430,47 @@ class Game {
     this.paused = false;
     $("paused").classList.add("hidden");
     this._requestLock();
+  }
+
+  _leaveToMenu() {
+    const menu = $("menu");
+    const onMenu = menu && !menu.classList.contains("hidden") && !this.running && !this.matchOver && !this.inShop;
+    if (onMenu) return;
+    if (!this.running && !this.matchOver && !this.inShop) return;
+
+    this.running = false;
+    this.matchOver = false;
+    this.inShop = false;
+    this.paused = false;
+    this.keys.clear();
+    this.mouseDown = false;
+    this.rmbDown = false;
+    this.dragging = false;
+    this._hideAdsUi();
+    if (this.inSettings) this._closeSettings();
+    if (document.exitPointerLock) document.exitPointerLock();
+
+    if (this.online && this.net) this.net.leaveRoom();
+
+    for (const b of this.bots || []) if (b.rig) this.scene.remove(b.rig.group);
+    for (const h of this.humans || []) if (h.rig) this.scene.remove(h.rig.group);
+    for (const e of this.effects || []) if (e.mesh) this.scene.remove(e.mesh);
+    this.bots = [];
+    this.humans = [];
+    this.effects = [];
+    this.player = null;
+    this.fighters = [];
+
+    if ($("hud")) $("hud").classList.add("hidden");
+    if ($("shop")) $("shop").classList.add("hidden");
+    if ($("paused")) $("paused").classList.add("hidden");
+    if ($("death-screen")) $("death-screen").classList.add("hidden");
+    if ($("match-over")) $("match-over").classList.add("hidden");
+    if ($("scoreboard")) $("scoreboard").classList.add("hidden");
+    if ($("room-chip")) $("room-chip").classList.add("hidden");
+    if (menu) menu.classList.remove("hidden");
+    this._refreshMannequin();
+    if (this.online) this._startLobbyWatch();
   }
 
   _hideAdsUi() {
@@ -3919,6 +3974,15 @@ class Game {
           if (hit.head) this.audio.headshot();
           else this.audio.hit();
           this.net.send({ t: "hit", tid: hit.ent.id, dmg, head: !!hit.head });
+          if (hit.ent.alive !== false) {
+            const hp = hit.ent.health == null ? 100 : hit.ent.health;
+            hit.ent.health = hp - dmg;
+            if (hit.ent.health <= 0) {
+              hit.ent.alive = false;
+              ent.kills += 1;
+              this._onPlayerKill(hit.head);
+            }
+          }
         } else {
           this.hurt(hit.ent, dmg, ent, hit.head, hit);
         }
@@ -3982,6 +4046,27 @@ class Game {
     this._hmT = setTimeout(() => el.classList.remove("show", "head"), 120);
   }
 
+  _onPlayerKill(head) {
+    this.credits += CFG.killCredit + (head ? CFG.headBonus : 0);
+    if ($("credits-hud")) $("credits-hud").textContent = String(this.credits);
+    this._giveKillAmmo(this.player);
+  }
+
+  _giveKillAmmo(ent) {
+    if (!ent || !ent.isPlayer) return;
+    const w = WEAPONS[ent.weaponId] || WEAPONS[this.weaponId] || WEAPONS.rifle;
+    let n = CFG.killAmmo;
+    const magRoom = Math.max(0, w.mag - (ent.ammo || 0));
+    const toMag = Math.min(n, magRoom);
+    ent.ammo = (ent.ammo || 0) + toMag;
+    n -= toMag;
+    ent.reserve = (ent.reserve || 0) + n;
+    if (!ent.gunAmmo) ent.gunAmmo = {};
+    ent.gunAmmo[w.id] = { ammo: ent.ammo, reserve: ent.reserve };
+    this._updateHud(0);
+    this._banner("+40 AMMO");
+  }
+
   kill(ent, attacker, head, fromNet = false) {
     if (!ent.alive && ent.health <= 0) {
       /* still allow first kill path */
@@ -3997,10 +4082,7 @@ class Game {
       if (this.modeId === "tdm" && attacker.team >= 0 && !this._sameTeam(attacker, ent)) {
         this.teamScore[attacker.team] += 1;
       }
-      if (attacker.isPlayer) {
-        this.credits += CFG.killCredit + (head ? CFG.headBonus : 0);
-        if ($("credits-hud")) $("credits-hud").textContent = String(this.credits);
-      }
+      if (attacker.isPlayer) this._onPlayerKill(head);
     }
     this._dropFlag(ent);
     this.audio.death();

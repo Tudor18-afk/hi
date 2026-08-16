@@ -88,6 +88,14 @@ export class Net {
     this._whenOpen(() => this.send({ t: "join", code, name, look }));
   }
 
+  leaveRoom() {
+    if (this.id || this.code) this.send({ t: "quit" });
+    this.id = null;
+    this.code = null;
+    this.host = false;
+    this.players = [];
+  }
+
   watch() {
     this._whenOpen(() => this.send({ t: "watch" }));
   }
