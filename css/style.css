@@ -951,9 +951,13 @@ button.mode {
   letter-spacing: 0.2em;
   opacity: 0.55;
 }
-button.mode.on {
+#team-row [data-team="0"].on {
+  background: rgba(62, 196, 255, 0.28);
   opacity: 1;
-  background: rgba(92, 225, 255, 0.22);
+}
+#team-row [data-team="1"].on {
+  background: rgba(255, 106, 61, 0.28);
+  opacity: 1;
 }
 #local-actions, #online-actions {
   margin-top: 14px;

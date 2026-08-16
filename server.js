@@ -54,6 +54,12 @@ function send(ws, obj) {
 const rooms = new Map();
 const watchers = new Set();
 const MAX_PLAYERS = 8;
+const TEAM_COL = [0x3ec4ff, 0xff6a3d];
+
+function parseTeam(mode, raw) {
+  if (mode !== "tdm" && mode !== "ctf" && mode !== "koth") return -1;
+  return Number(raw) === 1 ? 1 : 0;
+}
 
 function roster(room) {
   return [...room.clients.values()].map((c) => ({
@@ -62,6 +68,7 @@ function roster(room) {
     color: c.color,
     host: c.id === room.hostId,
     look: c.look || null,
+    team: c.team == null ? -1 : c.team,
   }));
 }
 
@@ -205,6 +212,7 @@ wss.on("connection", (ws) => {
       const map = ["warehouse", "yard", "labs"].includes(msg.map) ? msg.map : "warehouse";
       const diff = ["easy", "normal", "hard", "insane"].includes(msg.diff) ? msg.diff : "normal";
       const mode = ["ffa", "tdm", "ctf", "koth"].includes(msg.mode) ? msg.mode : "ffa";
+      const team = parseTeam(mode, msg.team);
       const room = {
         code,
         bots,
@@ -217,13 +225,13 @@ wss.on("connection", (ws) => {
       };
       const id = room.nextId++;
       room.hostId = id;
-      const color = COLORS[0];
+      const color = team >= 0 ? TEAM_COL[team] : COLORS[0];
       const look = sanitizeLook(msg.look);
-      room.clients.set(ws, { ws, id, name, color, look });
+      room.clients.set(ws, { ws, id, name, color, look, team });
       ws.playerId = id;
       ws.roomCode = code;
       rooms.set(code, room);
-      send(ws, { t: "ok", id, code, host: true, bots, map, diff, mode, players: roster(room) });
+      send(ws, { t: "ok", id, code, host: true, bots, map, diff, mode, team, players: roster(room) });
       broadcastLobbies();
       return;
     }
@@ -243,13 +251,14 @@ wss.on("connection", (ws) => {
       unwatch(ws);
       const name = String(msg.name || "PLAYER").slice(0, 12).toUpperCase() || "PLAYER";
       const id = room.nextId++;
-      const color = COLORS[(id - 1) % COLORS.length];
+      const team = parseTeam(room.mode || "ffa", msg.team);
+      const color = team >= 0 ? TEAM_COL[team] : COLORS[(id - 1) % COLORS.length];
       const look = sanitizeLook(msg.look);
-      room.clients.set(ws, { ws, id, name, color, look });
+      room.clients.set(ws, { ws, id, name, color, look, team });
       ws.playerId = id;
       ws.roomCode = code;
-      send(ws, { t: "ok", id, code, host: id === room.hostId, bots: room.bots, map: room.map, diff: room.diff, mode: room.mode || "ffa", players: roster(room) });
-      broadcast(room, { t: "join", id, name, color, look, players: roster(room) }, ws);
+      send(ws, { t: "ok", id, code, host: id === room.hostId, bots: room.bots, map: room.map, diff: room.diff, mode: room.mode || "ffa", team, players: roster(room) });
+      broadcast(room, { t: "join", id, name, color, look, team, players: roster(room) }, ws);
       broadcastLobbies();
       return;
     }

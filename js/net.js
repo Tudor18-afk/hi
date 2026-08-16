@@ -80,12 +80,12 @@ export class Net {
     if (this.ws && this.ws.readyState === 1) this.ws.send(JSON.stringify(obj));
   }
 
-  create(name, bots, map, diff, mode, look) {
-    this._whenOpen(() => this.send({ t: "create", name, bots, map, diff, mode, look }));
+  create(name, bots, map, diff, mode, look, team) {
+    this._whenOpen(() => this.send({ t: "create", name, bots, map, diff, mode, look, team }));
   }
 
-  join(code, name, look) {
-    this._whenOpen(() => this.send({ t: "join", code, name, look }));
+  join(code, name, look, team) {
+    this._whenOpen(() => this.send({ t: "join", code, name, look, team }));
   }
 
   leaveRoom() {

@@ -1415,26 +1415,126 @@ function makeHand(skin, scale = 1) {
 
 function makeViewHand(skin, side) {
   const h = new THREE.Group();
-  const palm = new THREE.Mesh(new THREE.BoxGeometry(0.068, 0.09, 0.036), skin);
+  const palm = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.125, 0.058), skin);
+  palm.position.y = -0.01;
   h.add(palm);
+  const heel = new THREE.Mesh(new THREE.SphereGeometry(0.036, 8, 6), skin);
+  heel.position.set(0, 0.048, 0.004);
+  h.add(heel);
   for (let i = 0; i < 4; i++) {
-    const knuckle = new THREE.Group();
-    const a = new THREE.Mesh(new THREE.CapsuleGeometry(0.008, 0.03, 2, 6), skin);
-    a.position.y = -0.05;
-    const b = new THREE.Mesh(new THREE.CapsuleGeometry(0.007, 0.022, 2, 6), skin);
-    b.position.set(0, -0.078, 0.01);
-    b.rotation.x = 0.95;
-    knuckle.add(a, b);
-    knuckle.position.set((i - 1.5) * 0.016, 0.018, 0.006);
-    knuckle.rotation.x = 0.85;
-    h.add(knuckle);
+    const finger = new THREE.Group();
+    const p1 = new THREE.Mesh(new THREE.CapsuleGeometry(0.014, 0.04, 2, 8), skin);
+    p1.position.y = -0.078;
+    const p2 = new THREE.Mesh(new THREE.CapsuleGeometry(0.013, 0.032, 2, 8), skin);
+    p2.position.set(0, -0.118, 0.02);
+    p2.rotation.x = 1.12;
+    const p3 = new THREE.Mesh(new THREE.CapsuleGeometry(0.012, 0.024, 2, 8), skin);
+    p3.position.set(0, -0.128, 0.048);
+    p3.rotation.x = 1.55;
+    finger.add(p1, p2, p3);
+    finger.position.set((i - 1.5) * 0.024, 0.032, 0.012);
+    finger.rotation.x = 0.62;
+    h.add(finger);
   }
-  const thumb = new THREE.Mesh(new THREE.CapsuleGeometry(0.01, 0.034, 2, 6), skin);
-  thumb.position.set(side * 0.04, -0.008, 0.016);
-  thumb.rotation.z = side * 0.95;
-  thumb.rotation.x = 0.55;
+  const thumb = new THREE.Group();
+  const t1 = new THREE.Mesh(new THREE.CapsuleGeometry(0.016, 0.036, 2, 8), skin);
+  t1.rotation.z = side * 1.05;
+  const t2 = new THREE.Mesh(new THREE.CapsuleGeometry(0.014, 0.03, 2, 8), skin);
+  t2.position.set(side * 0.032, -0.014, 0.026);
+  t2.rotation.set(0.85, 0, side * 0.55);
+  thumb.add(t1, t2);
+  thumb.position.set(side * 0.056, 0.012, 0.018);
   h.add(thumb);
   return h;
+}
+
+const VIEW_GRIP = {
+  rifle: {
+    rPos: [0.018, -0.15, 0.1],
+    rRot: [1.08, 0.32, -1.38],
+    lPos: [0.012, -0.058, -0.3],
+    lRot: [0.42, 0.08, 1.18],
+  },
+  smg: {
+    rPos: [0.016, -0.145, 0.1],
+    rRot: [1.1, 0.3, -1.36],
+    lPos: [0.01, -0.05, -0.22],
+    lRot: [0.4, 0.06, 1.12],
+  },
+  shotgun: {
+    rPos: [0.02, -0.14, 0.09],
+    rRot: [1.02, 0.28, -1.32],
+    lPos: [0.008, -0.062, -0.34],
+    lRot: [0.38, 0.04, 1.2],
+  },
+  sniper: {
+    rPos: [0.016, -0.14, 0.08],
+    rRot: [1.04, 0.3, -1.34],
+    lPos: [0.01, -0.05, -0.4],
+    lRot: [0.36, 0.05, 1.16],
+  },
+};
+
+const _armDir = new THREE.Vector3();
+const _armUp = new THREE.Vector3(0, 1, 0);
+const _handWorld = new THREE.Vector3();
+
+function placeArmSeg(mesh, ax, ay, az, bx, by, bz, restLen) {
+  const dx = bx - ax;
+  const dy = by - ay;
+  const dz = bz - az;
+  const len = Math.hypot(dx, dy, dz) || 0.04;
+  mesh.position.set((ax + bx) * 0.5, (ay + by) * 0.5, (az + bz) * 0.5);
+  _armDir.set(dx / len, dy / len, dz / len);
+  mesh.quaternion.setFromUnitVectors(_armUp, _armDir);
+  mesh.scale.set(1, Math.max(0.12, len / restLen), 1);
+}
+
+function createViewArms(look, teamColor) {
+  look = sanitizeLook(look);
+  const g = new THREE.Group();
+  const skin = matSkin(look.skin);
+  const sleeveCol = teamColor != null ? teamColor : look.shirt;
+  const shirt = matCloth(sleeveCol, 0.7);
+
+  const rHand = makeViewHand(skin, 1);
+  const lHand = makeViewHand(skin, -1);
+  g.add(rHand, lHand);
+
+  const mkSeg = (r, len, mat) => new THREE.Mesh(new THREE.CapsuleGeometry(r, len, 5, 12), mat);
+  const rUpper = mkSeg(0.1, 0.22, shirt);
+  const rLower = mkSeg(0.078, 0.2, skin);
+  const lUpper = mkSeg(0.1, 0.22, shirt);
+  const lLower = mkSeg(0.078, 0.2, skin);
+  const rEl = new THREE.Mesh(new THREE.SphereGeometry(0.088, 10, 8), shirt);
+  const lEl = new THREE.Mesh(new THREE.SphereGeometry(0.088, 10, 8), shirt);
+  const rSh = new THREE.Mesh(new THREE.SphereGeometry(0.12, 10, 8), shirt);
+  const lSh = new THREE.Mesh(new THREE.SphereGeometry(0.12, 10, 8), shirt);
+  const rCuff = new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 6), shirt);
+  const lCuff = new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 6), shirt);
+  g.add(rUpper, rLower, lUpper, lLower, rEl, lEl, rSh, lSh, rCuff, lCuff);
+
+  g.userData = {
+    leftHand: lHand,
+    rightHand: rHand,
+    rUpper,
+    rLower,
+    lUpper,
+    lLower,
+    rEl,
+    lEl,
+    rSh,
+    lSh,
+    rCuff,
+    lCuff,
+  };
+  g.traverse((m) => {
+    if (m.isMesh) {
+      m.castShadow = false;
+      m.receiveShadow = false;
+    }
+  });
+  return g;
 }
 
 function addHair(g, look, hairM, hy) {
@@ -1839,58 +1939,6 @@ function createOperator(color, name, look) {
   return createCharacter(l, name, {});
 }
 
-function viewLimb(parent, a, b, r, mat) {
-  const dx = b[0] - a[0];
-  const dy = b[1] - a[1];
-  const dz = b[2] - a[2];
-  const len = Math.hypot(dx, dy, dz);
-  const m = new THREE.Mesh(new THREE.CapsuleGeometry(r, Math.max(0.02, len - r * 0.4), 4, 10), mat);
-  m.position.set((a[0] + b[0]) * 0.5, (a[1] + b[1]) * 0.5, (a[2] + b[2]) * 0.5);
-  orientUp(m, dx, dy, dz);
-  parent.add(m);
-  const joint = new THREE.Mesh(new THREE.SphereGeometry(r * 0.95, 8, 6), mat);
-  joint.position.set(b[0], b[1], b[2]);
-  parent.add(joint);
-  return m;
-}
-
-function createViewArms(look) {
-  look = sanitizeLook(look);
-  const g = new THREE.Group();
-  const skin = matSkin(look.skin);
-  const shirt = matCloth(look.shirt, 0.72);
-
-  const rSh = [0.78, -0.92, 0.18];
-  const rEl = [0.52, -0.5, -0.2];
-  const rWr = [0.3, -0.41, -0.5];
-  viewLimb(g, rSh, rEl, 0.05, shirt);
-  viewLimb(g, rEl, rWr, 0.038, skin);
-  const rHand = makeViewHand(skin, 1);
-  rHand.position.set(rWr[0], rWr[1], rWr[2]);
-  rHand.rotation.set(0.2, 0.5, -1.2);
-  g.add(rHand);
-
-  const lSh = [-0.28, -0.95, 0.08];
-  const lEl = [0.02, -0.48, -0.38];
-  const lWr = [0.18, -0.34, -0.78];
-  viewLimb(g, lSh, lEl, 0.046, shirt);
-  viewLimb(g, lEl, lWr, 0.034, skin);
-  const lHand = makeViewHand(skin, -1);
-  lHand.position.set(lWr[0], lWr[1], lWr[2]);
-  lHand.rotation.set(0.45, -0.15, 1.05);
-  g.add(lHand);
-
-  g.userData.leftHand = lHand;
-  g.userData.rightHand = rHand;
-  g.traverse((m) => {
-    if (m.isMesh) {
-      m.castShadow = false;
-      m.receiveShadow = false;
-    }
-  });
-  return g;
-}
-
 function drawLookPreview(canvas, look) {
   if (!canvas) return;
   look = sanitizeLook(look);
@@ -1990,6 +2038,7 @@ class Game {
     this.padA = null;
     this.padB = null;
     this.difficulty = DIFFICULTY.normal;
+    this.wantTeam = 0;
     this.online = false;
     this.humans = [];
     this.net = new Net();
@@ -2146,6 +2195,13 @@ class Game {
       if (!btn) return;
       this._setGame(btn.dataset.game);
     });
+    if ($("team-row")) {
+      $("team-row").addEventListener("click", (e) => {
+        const btn = e.target.closest("[data-team]");
+        if (!btn) return;
+        this._setWantTeam(Number(btn.dataset.team));
+      });
+    }
     $("mode-local").addEventListener("click", (e) => {
       e.preventDefault();
       this._setMode(false);
@@ -2528,7 +2584,9 @@ class Game {
   _rebuildViewArms() {
     if (!this.viewmodel) return;
     if (this.viewArms) this.viewmodel.remove(this.viewArms);
-    this.viewArms = createViewArms(this.look);
+    const teamCol =
+      this._isTeamMode() && this.player && this.player.team >= 0 ? TEAMS[this.player.team].color : null;
+    this.viewArms = createViewArms(this.look, teamCol);
     this.viewmodel.add(this.viewArms);
     if (this.gunRoot) this.viewmodel.add(this.gunRoot);
     if (this.muzzleFlash) this.viewmodel.add(this.muzzleFlash);
@@ -2536,12 +2594,54 @@ class Game {
   }
 
   _poseViewHands(id) {
-    const hand = this.viewArms && this.viewArms.userData && this.viewArms.userData.leftHand;
-    if (!hand) return;
-    const z = id === "sniper" ? -0.92 : id === "shotgun" ? -0.86 : id === "smg" ? -0.7 : -0.78;
-    hand.position.z = z;
-    hand.position.x = 0.18;
-    hand.position.y = -0.34;
+    const arms = this.viewArms;
+    const gun = this.gunRoot;
+    if (!arms || !gun || !arms.userData) return;
+    const grip = VIEW_GRIP[id] || VIEW_GRIP.rifle;
+    const rh = arms.userData.rightHand;
+    const lh = arms.userData.leftHand;
+    if (!rh || !lh) return;
+    gun.updateMatrixWorld(true);
+    const place = (hand, pos, rot) => {
+      _handWorld.set(pos[0], pos[1], pos[2]);
+      gun.localToWorld(_handWorld);
+      if (this.viewmodel) this.viewmodel.worldToLocal(_handWorld);
+      hand.position.copy(_handWorld);
+      hand.rotation.set(rot[0], rot[1], rot[2]);
+      hand.quaternion.premultiply(gun.quaternion);
+    };
+    place(rh, grip.rPos, grip.rRot);
+    place(lh, grip.lPos, grip.lRot);
+    this._stretchViewArms();
+  }
+
+  _stretchViewArms() {
+    const d = this.viewArms && this.viewArms.userData;
+    if (!d || !d.rightHand || !d.leftHand) return;
+    const rSh = [0.34, -0.18, 0.16];
+    const lSh = [-0.18, -0.24, 0.12];
+    const rw = d.rightHand.position;
+    const lw = d.leftHand.position;
+    const rEl = [
+      rSh[0] + (rw.x - rSh[0]) * 0.46 + 0.08,
+      rSh[1] + (rw.y - rSh[1]) * 0.46 - 0.1,
+      rSh[2] + (rw.z - rSh[2]) * 0.46 + 0.02,
+    ];
+    const lEl = [
+      lSh[0] + (lw.x - lSh[0]) * 0.46 - 0.06,
+      lSh[1] + (lw.y - lSh[1]) * 0.46 - 0.1,
+      lSh[2] + (lw.z - lSh[2]) * 0.46 + 0.02,
+    ];
+    d.rSh.position.set(rSh[0], rSh[1], rSh[2]);
+    d.lSh.position.set(lSh[0], lSh[1], lSh[2]);
+    d.rEl.position.set(rEl[0], rEl[1], rEl[2]);
+    d.lEl.position.set(lEl[0], lEl[1], lEl[2]);
+    d.rCuff.position.copy(rw);
+    d.lCuff.position.copy(lw);
+    placeArmSeg(d.rUpper, rSh[0], rSh[1], rSh[2], rEl[0], rEl[1], rEl[2], 0.22);
+    placeArmSeg(d.rLower, rEl[0], rEl[1], rEl[2], rw.x, rw.y, rw.z, 0.2);
+    placeArmSeg(d.lUpper, lSh[0], lSh[1], lSh[2], lEl[0], lEl[1], lEl[2], 0.22);
+    placeArmSeg(d.lLower, lEl[0], lEl[1], lEl[2], lw.x, lw.y, lw.z, 0.2);
   }
 
   _charOpts(ent) {
@@ -2846,6 +2946,23 @@ class Game {
       btn.classList.toggle("on", btn.dataset.game === mode.id);
     }
     if ($("mode-name-hud")) $("mode-name-hud").textContent = mode.short;
+    this._syncTeamPick();
+  }
+
+  _syncTeamPick() {
+    if ($("team-block")) $("team-block").classList.toggle("hidden", !this._isTeamMode() && !this.online);
+  }
+
+  _setWantTeam(id) {
+    this.wantTeam = Number(id) === 1 ? 1 : 0;
+    if ($("team-row")) {
+      for (const btn of $("team-row").querySelectorAll("[data-team]")) {
+        btn.classList.toggle("on", Number(btn.dataset.team) === this.wantTeam);
+      }
+    }
+    if (this.player && this._isTeamMode() && !this.running) {
+      this._assignTeam(this.player, 0, this.wantTeam);
+    }
   }
 
   _isTeamMode() {
@@ -2856,15 +2973,15 @@ class Game {
     return this._isTeamMode() && a && b && a.team === b.team;
   }
 
-  _assignTeam(ent, index) {
+  _assignTeam(ent, index, forced) {
     if (!this._isTeamMode()) {
       ent.team = -1;
       return;
     }
-    ent.team = index % 2;
-    const col = TEAMS[ent.team].color;
-    ent.color = col;
-    if (ent.isPlayer) ent.color = col;
+    if (forced === 0 || forced === 1) ent.team = forced;
+    else if (ent.isPlayer) ent.team = this.wantTeam === 1 ? 1 : 0;
+    else ent.team = ((index % 2) + 2) % 2;
+    ent.color = TEAMS[ent.team].color;
   }
 
   _makeFlagMesh(color) {
@@ -3102,6 +3219,7 @@ class Game {
     } else {
       this._stopLobbyWatch();
     }
+    this._syncTeamPick();
   }
 
   _startLobbyWatch() {
@@ -3174,7 +3292,15 @@ class Game {
 
   _createRoom() {
     $("net-status").textContent = "Creating room…";
-    this.net.create(this._playerName(), parseInt($("bots").value, 10), this.mapId, this.diffId, this.modeId, this.look);
+    this.net.create(
+      this._playerName(),
+      parseInt($("bots").value, 10),
+      this.mapId,
+      this.diffId,
+      this.modeId,
+      this.look,
+      this.wantTeam
+    );
   }
 
   _joinRoom() {
@@ -3184,7 +3310,7 @@ class Game {
       return;
     }
     $("net-status").textContent = "Joining " + code.toUpperCase() + "…";
-    this.net.join(code, this._playerName(), this.look);
+    this.net.join(code, this._playerName(), this.look, this.wantTeam);
   }
 
   _onNet(msg) {
@@ -3207,6 +3333,7 @@ class Game {
       this._stopLobbyWatch();
       $("net-status").textContent = "Room " + msg.code + " — share this code.";
       $("room-code").value = msg.code;
+      if (msg.team === 0 || msg.team === 1) this.wantTeam = msg.team;
       this.startMatch({
         online: true,
         netId: msg.id,
@@ -3223,11 +3350,11 @@ class Game {
       $("net-status").textContent = "Disconnected from the room.";
     }
     if (!this.running) return;
-    if (msg.t === "join") this._addRemote(msg.id, msg.name, msg.color, false, msg.look);
+    if (msg.t === "join") this._addRemote(msg.id, msg.name, msg.color, false, msg.look, msg.team);
     if (msg.t === "leave") this._removeRemote(msg.id);
     if (msg.t === "host") this.net.host = !!msg.host;
     if (msg.t === "look") {
-      const f = this._byId(msg.id) || this._addRemote(msg.id, msg.name, msg.color, false, msg.look);
+      const f = this._byId(msg.id) || this._addRemote(msg.id, msg.name, msg.color, false, msg.look, msg.team);
       if (f) this._setLook(f, msg.look);
     }
     if (msg.t === "st") this._applyPeerState(msg);
@@ -3248,11 +3375,11 @@ class Game {
     this.fighters = [this.player, ...this.humans, ...this.bots].filter(Boolean);
   }
 
-  _addRemote(id, name, color, isBot, look) {
+  _addRemote(id, name, color, isBot, look, team) {
     if (!id || (this.player && id === this.player.id) || this._byId(id)) return null;
     const f = this._makeFighter(name || "PLAYER", color || 0x8892a0, false);
     f.id = id;
-    this._assignTeam(f, id - 1);
+    this._assignTeam(f, id - 1, team === 0 || team === 1 ? team : undefined);
     if (this._isTeamMode() && f.team >= 0) f.color = TEAMS[f.team].color;
     f.isRemote = true;
     f.isBot = !!isBot;
@@ -3281,7 +3408,7 @@ class Game {
   _applyPeerState(msg) {
     if (!msg || msg.id === this.player?.id) return;
     let f = this._byId(msg.id);
-    if (!f) f = this._addRemote(msg.id, msg.name, msg.color, false, msg.look);
+    if (!f) f = this._addRemote(msg.id, msg.name, msg.color, false, msg.look, msg.team);
     if (!f) return;
     this._setNetPose(f, msg.x, msg.y, msg.z, msg.yaw, msg.pitch);
     f.health = msg.hp;
@@ -3298,7 +3425,7 @@ class Game {
     for (const b of list) {
       seen.add(b.id);
       let f = this._byId(b.id);
-      if (!f) f = this._addRemote(b.id, b.name, b.color, true, b.look);
+      if (!f) f = this._addRemote(b.id, b.name, b.color, true, b.look, b.team);
       if (!f) continue;
       this._setNetPose(f, b.x, b.y, b.z, b.yaw, 0);
       f.health = b.hp;
@@ -3498,7 +3625,7 @@ class Game {
       this.player.look = sanitizeLook(this.look);
       this.player.lookKey = lookKey(this.player.look);
       if (opts.netId) this.player.id = opts.netId;
-      this._assignTeam(this.player, this.player.id - 1);
+      this._assignTeam(this.player, this.player.id - 1, this.wantTeam);
       this._rebuildViewArms();
 
       const simulateBots = !this.online || this.net.host;
@@ -3526,8 +3653,14 @@ class Game {
 
       if (this.online && opts.players) {
         for (const p of opts.players) {
-          if (p.id === this.player.id) continue;
-          this._addRemote(p.id, p.name, p.color, false, p.look);
+          if (p.id === this.player.id) {
+            if (p.team === 0 || p.team === 1) {
+              this.wantTeam = p.team;
+              this._assignTeam(this.player, 0, p.team);
+            }
+            continue;
+          }
+          this._addRemote(p.id, p.name, p.color, false, p.look, p.team);
         }
       }
 
@@ -4422,6 +4555,7 @@ class Game {
     this.viewmodel.rotation.x = lerp(0, w.id === "sniper" ? -0.02 : -0.04, ads);
     this.viewmodel.rotation.y = lerp(0, w.id === "sniper" ? 0 : -0.08, ads);
     this.viewmodel.rotation.z = lerp(0, 0.04, ads);
+    this._poseViewHands(w.id);
     this._setScopeUi(ads, w);
     const fov = lerp(78, w.adsFov || 56, ads);
     if (Math.abs(this.camera.fov - fov) > 0.04) {
