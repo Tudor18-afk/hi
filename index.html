@@ -19,7 +19,19 @@
       <div id="dir-s" class="hurt-dir"></div>
       <div id="dir-w" class="hurt-dir"></div>
 
-      <div id="crosshair">
+      <div id="scope">
+        <div class="scope-shade"></div>
+        <div class="scope-ring"></div>
+        <div class="scope-glass"></div>
+        <div class="scope-reticle">
+          <i class="sr-h"></i>
+          <i class="sr-v"></i>
+          <i class="sr-dot"></i>
+        </div>
+      </div>
+      <div id="holo"></div>
+      <div id="crosshair" class="xh" data-style="default">
+        <i class="ring"></i>
         <i class="tick t"></i>
         <i class="tick b"></i>
         <i class="tick l"></i>
@@ -100,8 +112,56 @@
 
     <div id="paused" class="hidden">
       <h2>PAUSED</h2>
-      <p>Click PLAY to jump back in. Mouse lock is optional.</p>
+      <p>Click PLAY to jump back in. Press P for crosshair settings. Mouse lock is optional.</p>
       <button id="btn-resume" type="button">PLAY</button>
+    </div>
+
+    <div id="settings" class="hidden">
+      <div class="set-panel">
+        <div class="eyebrow">PRESS P TO CLOSE</div>
+        <h2>SETTINGS</h2>
+        <div class="xh-preview-wrap">
+          <div id="xh-preview" class="xh" data-style="default">
+            <i class="ring"></i>
+            <i class="tick t"></i>
+            <i class="tick b"></i>
+            <i class="tick l"></i>
+            <i class="tick r"></i>
+            <i class="dot"></i>
+          </div>
+        </div>
+        <div class="pick-label">CROSSHAIR STYLE</div>
+        <div class="mode-row wrap" id="xh-style-row">
+          <button type="button" class="mode on" data-xh-style="default">CROSS</button>
+          <button type="button" class="mode" data-xh-style="plus">PLUS</button>
+          <button type="button" class="mode" data-xh-style="dot">DOT</button>
+          <button type="button" class="mode" data-xh-style="circle">CIRCLE</button>
+          <button type="button" class="mode" data-xh-style="chevron">CHEVRON</button>
+          <button type="button" class="mode" data-xh-style="box">BOX</button>
+        </div>
+        <div class="pick-label">COLOR</div>
+        <div class="xh-colors" id="xh-color-row">
+          <button type="button" class="xh-swatch on" data-xh-color="#f4fbff" style="background:#f4fbff" title="White"></button>
+          <button type="button" class="xh-swatch" data-xh-color="#5ce1ff" style="background:#5ce1ff" title="Cyan"></button>
+          <button type="button" class="xh-swatch" data-xh-color="#7dff6a" style="background:#7dff6a" title="Green"></button>
+          <button type="button" class="xh-swatch" data-xh-color="#ff4d5a" style="background:#ff4d5a" title="Red"></button>
+          <button type="button" class="xh-swatch" data-xh-color="#ffb347" style="background:#ffb347" title="Amber"></button>
+          <button type="button" class="xh-swatch" data-xh-color="#e056a0" style="background:#e056a0" title="Pink"></button>
+          <button type="button" class="xh-swatch" data-xh-color="#b47cff" style="background:#b47cff" title="Purple"></button>
+        </div>
+        <div class="set-sliders">
+          <label>SIZE <input id="xh-size" type="range" min="16" max="72" step="1" value="28" /><b id="xh-size-val">28</b></label>
+          <label>GAP <input id="xh-gap" type="range" min="0" max="18" step="1" value="4" /><b id="xh-gap-val">4</b></label>
+          <label>THICKNESS <input id="xh-thick" type="range" min="1" max="6" step="1" value="2" /><b id="xh-thick-val">2</b></label>
+          <label>LENGTH <input id="xh-len" type="range" min="4" max="20" step="1" value="8" /><b id="xh-len-val">8</b></label>
+          <label>OPACITY <input id="xh-op" type="range" min="0.35" max="1" step="0.05" value="1" /><b id="xh-op-val">1.0</b></label>
+        </div>
+        <div class="mode-row wrap" id="xh-opt-row">
+          <button type="button" class="mode on" id="xh-dot-btn">CENTER DOT</button>
+          <button type="button" class="mode on" id="xh-outline-btn">OUTLINE</button>
+        </div>
+        <button id="btn-settings-close" type="button">CLOSE</button>
+      </div>
     </div>
 
     <div id="shop" class="hidden">
@@ -195,7 +255,7 @@
         </div>
         <div class="help">
           <div><kbd>WASD</kbd> move <kbd>SHIFT</kbd> sprint <kbd>SPACE</kbd> jump <kbd>C</kbd> crouch</div>
-          <div><kbd>LMB</kbd> fire <kbd>RMB</kbd>/<kbd>E</kbd> aim <kbd>R</kbd> reload <kbd>1-4</kbd> guns <kbd>TAB</kbd> board</div>
+          <div><kbd>LMB</kbd> fire <kbd>RMB</kbd>/<kbd>E</kbd> aim <kbd>R</kbd> reload <kbd>1-4</kbd> guns <kbd>TAB</kbd> board <kbd>P</kbd> settings</div>
           <div>CTF: grab the enemy flag and run it to your pad. Hill: hold the gold ring.</div>
         </div>
       </div>

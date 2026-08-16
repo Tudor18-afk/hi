@@ -42,7 +42,7 @@ const WEAPONS = {
     bloom: 0.005,
     pellets: 1,
     auto: true,
-    adsFov: 56,
+    adsFov: 48,
   },
   smg: {
     id: "smg",
@@ -60,7 +60,7 @@ const WEAPONS = {
     bloom: 0.004,
     pellets: 1,
     auto: true,
-    adsFov: 60,
+    adsFov: 54,
   },
   shotgun: {
     id: "shotgun",
@@ -78,7 +78,7 @@ const WEAPONS = {
     bloom: 0.02,
     pellets: 8,
     auto: false,
-    adsFov: 62,
+    adsFov: 58,
   },
   sniper: {
     id: "sniper",
@@ -91,12 +91,12 @@ const WEAPONS = {
     reserve: 15,
     reload: 2.8,
     spread: 0.008,
-    adsSpread: 0.0006,
+    adsSpread: 0.00035,
     recoil: 0.04,
     bloom: 0.012,
     pellets: 1,
     auto: false,
-    adsFov: 34,
+    adsFov: 16,
   },
 };
 
@@ -144,6 +144,18 @@ const TEAMS = [
   { id: 0, name: "ALPHA", color: 0x3ec4ff },
   { id: 1, name: "BRAVO", color: 0xff6a3d },
 ];
+
+const XHAIR_DEFAULT = {
+  style: "default",
+  color: "#f4fbff",
+  size: 28,
+  gap: 4,
+  thick: 2,
+  len: 8,
+  opacity: 1,
+  center: true,
+  outline: true,
+};
 
 const $ = (id) => document.getElementById(id);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -969,6 +981,8 @@ class Game {
     this.aimT = 0;
     this.rmbDown = false;
     this.touchAim = false;
+    this.inSettings = false;
+    this.xhair = this._loadXhair();
     this.time = 0;
     this.effects = [];
     this.shots = [];
@@ -1019,6 +1033,8 @@ class Game {
     this.usingTouch = false;
 
     this._bind();
+    this._bindSettings();
+    this._applyXhair();
     this._loop = this._loop.bind(this);
     this.last = performance.now();
     requestAnimationFrame(this._loop);
@@ -1107,6 +1123,10 @@ class Game {
       e.preventDefault();
       this._resume();
     });
+    $("btn-settings-close").addEventListener("click", (e) => {
+      e.preventDefault();
+      this._closeSettings();
+    });
     $("btn-next-round").addEventListener("click", (e) => {
       e.preventDefault();
       this._nextRound();
@@ -1129,6 +1149,18 @@ class Game {
       if (e.code === "Digit2") this._equipWeapon("smg");
       if (e.code === "Digit3") this._equipWeapon("shotgun");
       if (e.code === "Digit4") this._equipWeapon("sniper");
+      if (e.code === "KeyP") {
+        if (e.repeat) return;
+        if (e.target && (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA")) return;
+        e.preventDefault();
+        this._toggleSettings();
+        return;
+      }
+      if (e.code === "Escape" && this.inSettings) {
+        e.preventDefault();
+        this._closeSettings();
+        return;
+      }
       if (e.code === "Escape" && this.running && !this.matchOver && !this.inShop) {
         if (this.paused) this._resume();
         else this._pause();
@@ -1139,13 +1171,13 @@ class Game {
       if (e.code === "Tab") $("scoreboard").classList.add("hidden");
     });
     addEventListener("mousedown", (e) => {
-      const ui = e.target.closest("button, input, #shop, #menu, #match-over, #paused, #scoreboard");
-      if (e.button === 0) this.mouseDown = !ui && !this.inShop;
+      const ui = e.target.closest("button, input, #shop, #menu, #match-over, #paused, #scoreboard, #settings");
+      if (e.button === 0) this.mouseDown = !ui && !this.inShop && !this.inSettings;
       if (e.button === 2) {
         e.preventDefault();
-        this.rmbDown = !ui && !this.inShop;
+        this.rmbDown = !ui && !this.inShop && !this.inSettings;
       }
-      if (this.running && !this.matchOver && !this.inShop && !ui) {
+      if (this.running && !this.matchOver && !this.inShop && !this.inSettings && !ui) {
         if (this.paused) this._resume();
         else {
           this.dragging = true;
@@ -1163,7 +1195,7 @@ class Game {
     });
     document.addEventListener("pointerlockchange", () => {
       this.pointerLocked = document.pointerLockElement === $("view");
-      if (this.pointerLocked && this.paused) this._resume();
+      if (this.pointerLocked && this.paused && !this.inSettings) this._resume();
       this._syncLookHint();
     });
     document.addEventListener("pointerlockerror", () => {
@@ -1279,9 +1311,10 @@ class Game {
   }
 
   _look(dx, dy, allowed) {
-    if (!allowed || !this.player || !this.player.alive || this.paused || this.inShop || !this.running) return;
-    this.player.yaw -= dx * this.sens * 0.0022 * (1 - this.aimT * 0.52);
-    this.player.pitch -= dy * this.sens * 0.0022 * (1 - this.aimT * 0.52);
+    if (!allowed || !this.player || !this.player.alive || this.paused || this.inShop || this.inSettings || !this.running) return;
+    const scoped = this.weaponId === "sniper" ? 0.82 : 0.52;
+    this.player.yaw -= dx * this.sens * 0.0022 * (1 - this.aimT * scoped);
+    this.player.pitch -= dy * this.sens * 0.0022 * (1 - this.aimT * scoped);
     this.player.pitch = clamp(this.player.pitch, -1.45, 1.45);
   }
 
@@ -1298,20 +1331,185 @@ class Game {
 
   _pause() {
     this.paused = true;
-    $("paused").classList.remove("hidden");
+    this._hideAdsUi();
+    if (!this.inSettings) $("paused").classList.remove("hidden");
     if (document.exitPointerLock) document.exitPointerLock();
   }
 
   _resume() {
+    if (this.inSettings) {
+      this._closeSettings();
+      return;
+    }
     this.paused = false;
     $("paused").classList.add("hidden");
     this._requestLock();
   }
 
+  _hideAdsUi() {
+    this.aimT = 0;
+    const ch = $("crosshair");
+    if (ch) ch.classList.remove("ads", "hidden-ads");
+    if ($("hud")) $("hud").classList.remove("ads", "scope", "holo");
+    const sc = $("scope");
+    if (sc) sc.classList.remove("show");
+  }
+
+  _loadXhair() {
+    const out = { ...XHAIR_DEFAULT };
+    try {
+      const raw = localStorage.getItem("nexus-xhair");
+      if (!raw) return out;
+      const data = JSON.parse(raw);
+      if (data && typeof data === "object") Object.assign(out, data);
+    } catch (_) {}
+    return out;
+  }
+
+  _saveXhair() {
+    try {
+      localStorage.setItem("nexus-xhair", JSON.stringify(this.xhair));
+    } catch (_) {}
+  }
+
+  _applyXhair() {
+    const x = this.xhair || XHAIR_DEFAULT;
+    for (const id of ["crosshair", "xh-preview"]) {
+      const el = $(id);
+      if (!el) continue;
+      el.dataset.style = x.style || "default";
+      el.classList.toggle("nodot", !x.center);
+      el.style.setProperty("--xh-color", x.color || "#f4fbff");
+      el.style.setProperty("--xh-size", (x.size || 28) + "px");
+      el.style.setProperty("--xh-gap", (x.gap ?? 4) + "px");
+      el.style.setProperty("--xh-thick", (x.thick || 2) + "px");
+      el.style.setProperty("--xh-len", (x.len || 8) + "px");
+      el.style.setProperty("--xh-dot", Math.max(2, x.thick || 2) + "px");
+      el.style.setProperty("--xh-op", String(x.opacity ?? 1));
+      el.style.setProperty("--xh-outline", x.outline ? "1px" : "0px");
+    }
+  }
+
+  _syncXhairUI() {
+    const x = this.xhair;
+    const set = (id, val) => {
+      if ($(id)) $(id).value = String(val);
+    };
+    const lab = (id, val) => {
+      if ($(id)) $(id).textContent = String(val);
+    };
+    set("xh-size", x.size);
+    set("xh-gap", x.gap);
+    set("xh-thick", x.thick);
+    set("xh-len", x.len);
+    set("xh-op", x.opacity);
+    lab("xh-size-val", x.size);
+    lab("xh-gap-val", x.gap);
+    lab("xh-thick-val", x.thick);
+    lab("xh-len-val", x.len);
+    lab("xh-op-val", Number(x.opacity).toFixed(2));
+    if ($("xh-dot-btn")) $("xh-dot-btn").classList.toggle("on", !!x.center);
+    if ($("xh-outline-btn")) $("xh-outline-btn").classList.toggle("on", !!x.outline);
+    if ($("xh-style-row")) {
+      for (const btn of $("xh-style-row").querySelectorAll("[data-xh-style]")) {
+        btn.classList.toggle("on", btn.dataset.xhStyle === x.style);
+      }
+    }
+    if ($("xh-color-row")) {
+      for (const btn of $("xh-color-row").querySelectorAll("[data-xh-color]")) {
+        btn.classList.toggle("on", btn.dataset.xhColor === x.color);
+      }
+    }
+    this._applyXhair();
+  }
+
+  _bindSettings() {
+    const row = $("xh-style-row");
+    if (row) {
+      row.addEventListener("click", (e) => {
+        const btn = e.target.closest("[data-xh-style]");
+        if (!btn) return;
+        this.xhair.style = btn.dataset.xhStyle;
+        this._saveXhair();
+        this._syncXhairUI();
+      });
+    }
+    const colors = $("xh-color-row");
+    if (colors) {
+      colors.addEventListener("click", (e) => {
+        const btn = e.target.closest("[data-xh-color]");
+        if (!btn) return;
+        this.xhair.color = btn.dataset.xhColor;
+        this._saveXhair();
+        this._syncXhairUI();
+      });
+    }
+    const bindRange = (id, key, label, fmt) => {
+      const el = $(id);
+      if (!el) return;
+      el.addEventListener("input", () => {
+        const n = parseFloat(el.value);
+        this.xhair[key] = n;
+        if ($(label)) $(label).textContent = fmt ? fmt(n) : String(n);
+        this._saveXhair();
+        this._applyXhair();
+      });
+    };
+    bindRange("xh-size", "size", "xh-size-val");
+    bindRange("xh-gap", "gap", "xh-gap-val");
+    bindRange("xh-thick", "thick", "xh-thick-val");
+    bindRange("xh-len", "len", "xh-len-val");
+    bindRange("xh-op", "opacity", "xh-op-val", (n) => n.toFixed(2));
+    if ($("xh-dot-btn")) {
+      $("xh-dot-btn").addEventListener("click", () => {
+        this.xhair.center = !this.xhair.center;
+        this._saveXhair();
+        this._syncXhairUI();
+      });
+    }
+    if ($("xh-outline-btn")) {
+      $("xh-outline-btn").addEventListener("click", () => {
+        this.xhair.outline = !this.xhair.outline;
+        this._saveXhair();
+        this._syncXhairUI();
+      });
+    }
+  }
+
+  _toggleSettings() {
+    if (this.inSettings) this._closeSettings();
+    else this._openSettings();
+  }
+
+  _openSettings() {
+    this.inSettings = true;
+    this._hideAdsUi();
+    if (this.running && !this.matchOver && !this.inShop) {
+      this.paused = true;
+      $("paused").classList.add("hidden");
+      if (document.exitPointerLock) document.exitPointerLock();
+    }
+    $("settings").classList.remove("hidden");
+    this._syncXhairUI();
+    this._syncLookHint();
+  }
+
+  _closeSettings() {
+    const resumeGame = this.running && !this.matchOver && !this.inShop && this.inSettings && this.paused;
+    this.inSettings = false;
+    $("settings").classList.add("hidden");
+    if (resumeGame) {
+      this.paused = false;
+      $("paused").classList.add("hidden");
+      this._requestLock();
+    }
+    this._syncLookHint();
+  }
+
   _syncLookHint() {
     const hint = $("look-hint");
     if (!hint) return;
-    const show = this.running && !this.paused && !this.matchOver && !this.inShop && !this.pointerLocked && !this.usingTouch;
+    const show = this.running && !this.paused && !this.matchOver && !this.inShop && !this.inSettings && !this.pointerLocked && !this.usingTouch;
     hint.classList.toggle("hidden", !show);
   }
 
@@ -1871,6 +2069,7 @@ class Game {
       this.aimT = 0;
       this.rmbDown = false;
       this.touchAim = false;
+      if (this.inSettings) this._closeSettings();
       this.camera.fov = 78;
       this.camera.updateProjectionMatrix();
       this.pointerLocked = false;
@@ -2184,8 +2383,7 @@ class Game {
     this.touchAim = false;
     this.camera.fov = 78;
     this.camera.updateProjectionMatrix();
-    $("crosshair").classList.remove("ads");
-    if ($("hud")) $("hud").classList.remove("ads");
+    this._hideAdsUi();
     this.paused = false;
     $("paused").classList.add("hidden");
     if (document.exitPointerLock) document.exitPointerLock();
@@ -2646,8 +2844,7 @@ class Game {
     const p = this.player;
     if (!p.alive) {
       this.aimT = lerp(this.aimT, 0, 0.25);
-      $("crosshair").classList.remove("ads");
-      if ($("hud")) $("hud").classList.remove("ads");
+      this._setScopeUi(0, this._weapon());
       if (this.camera.fov !== 78) {
         this.camera.fov = lerp(this.camera.fov, 78, 0.25);
         this.camera.updateProjectionMatrix();
@@ -2661,8 +2858,10 @@ class Game {
     const wantAds =
       (this.rmbDown || this.keys.has("KeyE") || this.touchAim) &&
       !this.paused &&
-      !this.inShop;
-    this.aimT = lerp(this.aimT, wantAds ? 1 : 0, 1 - Math.exp(-14 * dt));
+      !this.inShop &&
+      !this.inSettings;
+    const adsRate = w.id === "sniper" ? 9 : 14;
+    this.aimT = lerp(this.aimT, wantAds ? 1 : 0, 1 - Math.exp(-adsRate * dt));
     const ads = this.aimT;
     const sprint = !wantAds && (this.keys.has("ShiftLeft") || this.keys.has("ShiftRight"));
     let ix = 0;
@@ -2766,19 +2965,39 @@ class Game {
 
     const sway = Math.sin(p.walkPhase) * (moving ? 0.018 : 0.004) * (1 - ads);
     const bob = Math.abs(Math.sin(p.walkPhase * 2)) * (moving ? 0.012 : 0) * (1 - ads);
-    this.viewmodel.position.x = lerp(sway, -0.318, ads);
-    this.viewmodel.position.y = lerp(bob, 0.255, ads);
-    this.viewmodel.position.z = lerp(0, 0.16, ads);
-    this.viewmodel.rotation.x = lerp(0, -0.04, ads);
-    this.viewmodel.rotation.y = lerp(0, -0.08, ads);
+    const adsX = w.id === "sniper" ? -0.02 : -0.318;
+    const adsY = w.id === "sniper" ? 0.12 : 0.255;
+    const adsZ = w.id === "sniper" ? 0.22 : 0.16;
+    this.viewmodel.position.x = lerp(sway, adsX, ads);
+    this.viewmodel.position.y = lerp(bob, adsY, ads);
+    this.viewmodel.position.z = lerp(0, adsZ, ads);
+    this.viewmodel.rotation.x = lerp(0, w.id === "sniper" ? -0.02 : -0.04, ads);
+    this.viewmodel.rotation.y = lerp(0, w.id === "sniper" ? 0 : -0.08, ads);
     this.viewmodel.rotation.z = lerp(0, 0.04, ads);
-    $("crosshair").classList.toggle("ads", ads > 0.55);
-    if ($("hud")) $("hud").classList.toggle("ads", ads > 0.45);
+    this._setScopeUi(ads, w);
     const fov = lerp(78, w.adsFov || 56, ads);
     if (Math.abs(this.camera.fov - fov) > 0.04) {
       this.camera.fov = fov;
       this.camera.updateProjectionMatrix();
     }
+  }
+
+  _setScopeUi(ads, w) {
+    const sniper = w && w.id === "sniper";
+    const scoped = sniper && ads > 0.55;
+    const holo = !sniper && ads > 0.5;
+    const ch = $("crosshair");
+    if (ch) {
+      ch.classList.toggle("ads", ads > 0.55 && !scoped);
+      ch.classList.toggle("hidden-ads", scoped);
+    }
+    if ($("hud")) {
+      $("hud").classList.toggle("ads", ads > 0.45);
+      $("hud").classList.toggle("scope", scoped);
+      $("hud").classList.toggle("holo", holo);
+    }
+    const sc = $("scope");
+    if (sc) sc.classList.toggle("show", scoped);
   }
 
   _pickTarget(bot) {
@@ -3204,9 +3423,13 @@ class Game {
       this.camera.position.set(this.player.pos.x, this.player.pos.y + eye, this.player.pos.z);
       this.camera.rotation.order = "YXZ";
       this.camera.rotation.y = this.player.yaw;
-      this.camera.rotation.x = this.player.pitch + this.player.recoil;
+      let pitch = this.player.pitch + this.player.recoil;
+      if (this.weaponId === "sniper" && this.aimT > 0.45 && this.player.alive) {
+        pitch += Math.sin(this.time * 1.25) * 0.0032 + Math.sin(this.time * 0.62) * 0.002;
+      }
+      this.camera.rotation.x = pitch;
       this.camera.rotation.z = 0;
-      this.viewmodel.visible = this.player.alive;
+      this.viewmodel.visible = this.player.alive && !(this.weaponId === "sniper" && this.aimT > 0.5);
     } else {
       const t = performance.now() * 0.00016;
       this.camera.position.set(Math.cos(t) * 24, 10.5, Math.sin(t) * 24);
