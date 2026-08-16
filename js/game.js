@@ -2048,6 +2048,10 @@ class Game {
     this.credits = CFG.startCredit;
     this.owned = { rifle: true };
     this.weaponId = "rifle";
+    this.stats = { kills: 0, deaths: 0, wins: 0, matches: 0 };
+    this._savedName = "YOU";
+    this._matchOpen = false;
+    this._loadProgress();
     this._firedSemi = false;
     this.aimT = 0;
     this.rmbDown = false;
@@ -2062,6 +2066,7 @@ class Game {
     this.shots = [];
     this.idSeq = 1;
     this._bind();
+    this._applyProgressUI();
 
     try {
       this.renderer = new THREE.WebGLRenderer({
@@ -2082,7 +2087,7 @@ class Game {
       this.camera = new THREE.PerspectiveCamera(78, innerWidth / innerHeight, 0.05, 240);
       this.camera.rotation.order = "YXZ";
 
-      this._loadMap("warehouse");
+      this._loadMap(this.mapId || "warehouse");
 
       this.tracerMat = new THREE.MeshBasicMaterial({ color: 0xffe08a, transparent: true, opacity: 0.85 });
       this.sparkGeo = new THREE.SphereGeometry(0.035, 6, 6);
@@ -2119,6 +2124,7 @@ class Game {
     this._applyXhair();
     this._syncLookUI();
     this._refreshMannequin();
+    this._bootLobby();
     loadHumanModels()
       .then(() => {
         this._refreshMannequin();
@@ -2170,11 +2176,18 @@ class Game {
     $("sens").addEventListener("input", (e) => {
       this.sens = parseFloat(e.target.value);
       $("sens-val").textContent = this.sens.toFixed(1);
+      this._saveProgress();
     });
     $("bots").addEventListener("input", (e) => {
       this.botCount = parseInt(e.target.value, 10);
       $("bots-val").textContent = String(this.botCount);
+      this._saveProgress();
     });
+    if ($("player-name")) {
+      $("player-name").addEventListener("change", () => this._saveProgress());
+      $("player-name").addEventListener("blur", () => this._saveProgress());
+    }
+    addEventListener("beforeunload", () => this._saveProgress());
     $("diff-row").addEventListener("click", (e) => {
       const btn = e.target.closest("[data-diff]");
       if (!btn) return;
@@ -2492,6 +2505,7 @@ class Game {
     if (onMenu) return;
     if (!this.running && !this.matchOver && !this.inShop) return;
 
+    this._settleCareer();
     this.running = false;
     this.matchOver = false;
     this.inShop = false;
@@ -2523,8 +2537,9 @@ class Game {
     if ($("scoreboard")) $("scoreboard").classList.add("hidden");
     if ($("room-chip")) $("room-chip").classList.add("hidden");
     if (menu) menu.classList.remove("hidden");
+    this._refreshCareerUI();
     this._refreshMannequin();
-    if (this.online) this._startLobbyWatch();
+    this._bootLobby();
   }
 
   _hideAdsUi() {
@@ -2567,6 +2582,136 @@ class Game {
     try {
       localStorage.setItem("nexus-look", JSON.stringify(sanitizeLook(this.look)));
     } catch (_) {}
+  }
+
+  _loadProgress() {
+    try {
+      const raw = localStorage.getItem("nexus-save");
+      if (!raw) return;
+      const d = JSON.parse(raw);
+      if (!d || typeof d !== "object") return;
+      if (typeof d.name === "string") {
+        const name = d.name.trim().toUpperCase().slice(0, 12) || "YOU";
+        this._savedName = name;
+      }
+      if (typeof d.credits === "number" && Number.isFinite(d.credits)) {
+        this.credits = Math.max(0, Math.floor(d.credits));
+      }
+      if (d.owned && typeof d.owned === "object") {
+        this.owned = { rifle: true };
+        for (const id of WEAPON_ORDER) {
+          if (d.owned[id]) this.owned[id] = true;
+        }
+      }
+      if (WEAPON_ORDER.includes(d.weaponId) && this.owned[d.weaponId]) this.weaponId = d.weaponId;
+      if (typeof d.sens === "number" && Number.isFinite(d.sens)) {
+        this.sens = Math.min(2.8, Math.max(0.4, d.sens));
+      }
+      if (typeof d.bots === "number" && Number.isFinite(d.bots)) {
+        this.botCount = Math.min(8, Math.max(0, Math.floor(d.bots)));
+      }
+      if (d.mapId && MAPS[d.mapId]) this.mapId = d.mapId;
+      if (d.diffId && DIFFICULTY[d.diffId]) {
+        this.diffId = d.diffId;
+        this.difficulty = DIFFICULTY[d.diffId];
+      }
+      if (d.modeId && MODES[d.modeId]) {
+        this.modeId = d.modeId;
+        this.mode = MODES[d.modeId];
+      }
+      if (d.wantTeam === 0 || d.wantTeam === 1) this.wantTeam = d.wantTeam;
+      if (d.stats && typeof d.stats === "object") {
+        this.stats = {
+          kills: Math.max(0, Math.floor(Number(d.stats.kills) || 0)),
+          deaths: Math.max(0, Math.floor(Number(d.stats.deaths) || 0)),
+          wins: Math.max(0, Math.floor(Number(d.stats.wins) || 0)),
+          matches: Math.max(0, Math.floor(Number(d.stats.matches) || 0)),
+        };
+      }
+    } catch (_) {}
+  }
+
+  _saveProgress() {
+    if (this._applyingProgress) return;
+    try {
+      localStorage.setItem(
+        "nexus-save",
+        JSON.stringify({
+          name: this._playerName(),
+          credits: this.credits,
+          owned: this.owned,
+          weaponId: this.weaponId,
+          sens: this.sens,
+          bots: this.botCount,
+          mapId: this.mapId,
+          diffId: this.diffId,
+          modeId: this.modeId,
+          wantTeam: this.wantTeam,
+          stats: this.stats || { kills: 0, deaths: 0, wins: 0, matches: 0 },
+        })
+      );
+    } catch (_) {}
+    this._refreshCareerUI();
+  }
+
+  _applyProgressUI() {
+    this._applyingProgress = true;
+    if ($("player-name") && this._savedName) $("player-name").value = this._savedName;
+    if ($("sens")) {
+      $("sens").value = String(this.sens);
+      if ($("sens-val")) $("sens-val").textContent = this.sens.toFixed(1);
+    }
+    if ($("bots")) {
+      $("bots").value = String(this.botCount);
+      if ($("bots-val")) $("bots-val").textContent = String(this.botCount);
+    }
+    if ($("map-row")) {
+      for (const btn of $("map-row").querySelectorAll("[data-map]")) {
+        btn.classList.toggle("on", btn.dataset.map === this.mapId);
+      }
+    }
+    this._setDifficulty(this.diffId);
+    this._setGame(this.modeId);
+    this._setWantTeam(this.wantTeam);
+    this._applyingProgress = false;
+    this._refreshCareerUI();
+  }
+
+  _refreshCareerUI() {
+    if ($("menu-credits")) $("menu-credits").textContent = "¢ " + this.credits;
+    if ($("menu-kd")) $("menu-kd").textContent = (this.stats.kills || 0) + "–" + (this.stats.deaths || 0);
+    if ($("menu-wins")) $("menu-wins").textContent = String(this.stats.wins || 0);
+    if ($("menu-guns")) {
+      const names = WEAPON_ORDER.filter((id) => this.owned[id]).map((id) => {
+        const n = (WEAPONS[id] && WEAPONS[id].name) || id;
+        return n.split(" ")[0];
+      });
+      $("menu-guns").textContent = names.join(" · ") || "AR-15";
+    }
+  }
+
+  _settleCareer() {
+    if (this._matchOpen && this.player) {
+      this._matchOpen = false;
+      const ranked = this._ranked();
+      if (ranked[0] && ranked[0].isPlayer && (ranked[0].kills || 0) > 0) {
+        this.stats.wins = (this.stats.wins || 0) + 1;
+      }
+    } else {
+      this._matchOpen = false;
+    }
+    this._saveProgress();
+  }
+
+  _bootLobby() {
+    if (this.running) return;
+    if ($("net-status")) {
+      $("net-status").textContent = this.net && this.net.connected
+        ? "Lobby live. Pick a room, or create one."
+        : "Finding open lobbies…";
+    }
+    this.net.connect();
+    this._startLobbyWatch();
   }
 
   _commitLook() {
@@ -2943,6 +3088,7 @@ class Game {
     }
     if ($("mode-name-hud")) $("mode-name-hud").textContent = mode.short;
     this._syncTeamPick();
+    this._saveProgress();
   }
 
   _syncTeamPick() {
@@ -2962,6 +3108,7 @@ class Game {
     if (this.player && this._isTeamMode() && !this.running) {
       this._assignTeam(this.player, 0, this.wantTeam);
     }
+    this._saveProgress();
   }
 
   _isTeamMode() {
@@ -3096,6 +3243,7 @@ class Game {
         if (f.isPlayer) {
           this.credits += 150;
           if ($("credits-hud")) $("credits-hud").textContent = String(this.credits);
+          this._saveProgress();
         }
         this._banner(TEAMS[f.team].name + " CAPTURE " + this.teamScore[f.team]);
         this._objFeed(f.name + " captured for " + TEAMS[f.team].name);
@@ -3183,6 +3331,7 @@ class Game {
       btn.classList.toggle("on", btn.dataset.diff === diff.id);
     }
     if ($("diff-name-hud")) $("diff-name-hud").textContent = diff.name;
+    this._saveProgress();
   }
 
   _setMap(id) {
@@ -3192,6 +3341,7 @@ class Game {
       btn.classList.toggle("on", btn.dataset.map === map);
     }
     this._loadMap(map);
+    this._saveProgress();
   }
 
   _playerName() {
@@ -3203,29 +3353,18 @@ class Game {
     this.online = !!online;
     if ($("mode-local")) $("mode-local").classList.toggle("on", !this.online);
     if ($("mode-online")) $("mode-online").classList.toggle("on", this.online);
-    if ($("online-actions")) $("online-actions").classList.toggle("hidden", !this.online);
     if ($("menu-eyebrow")) $("menu-eyebrow").textContent = this.online ? "ONLINE DEATHMATCH" : "LOCAL MATCH";
     if ($("btn-start")) $("btn-start").textContent = this.online ? "CREATE ROOM" : "PLAY";
-    if (this.online) {
-      if ($("net-status")) $("net-status").textContent = "Connecting…";
-      this._renderLobbies([]);
-      if ($("lobby-list")) {
-        const empty = $("lobby-list").querySelector(".lobby-empty");
-        if (empty) empty.textContent = "Connecting to find rooms…";
-      }
-      this.net.connect();
-      this._startLobbyWatch();
-    } else {
-      this._stopLobbyWatch();
-    }
     this._syncTeamPick();
+    if (!this.running) this._bootLobby();
   }
 
   _startLobbyWatch() {
     this._stopLobbyWatch(true);
     this.net.watch();
+    this.net.listLobbies();
     this._lobbyTimer = setInterval(() => {
-      if (this.online && !this.running) this.net.listLobbies();
+      if (!this.running) this.net.listLobbies();
       else this._stopLobbyWatch();
     }, 2000);
   }
@@ -3246,9 +3385,7 @@ class Game {
     if (!list.length) {
       const empty = document.createElement("div");
       empty.className = "lobby-empty";
-      empty.textContent = this.online
-        ? "No open lobbies yet. Hit CREATE ROOM and it will show up here."
-        : "Switch to ONLINE to see rooms.";
+      empty.textContent = "No open lobbies yet. Hit CREATE ROOM (ONLINE) and it will show up here.";
       el.appendChild(empty);
       return;
     }
@@ -3285,11 +3422,13 @@ class Game {
   }
 
   _joinLobby(code) {
+    if (!this.online) this._setMode(true);
     if ($("room-code")) $("room-code").value = String(code || "").toUpperCase();
     this._joinRoom();
   }
 
   _createRoom() {
+    if (!this.online) this._setMode(true);
     $("net-status").textContent = "Creating room…";
     this.net.create(
       this._playerName(),
@@ -3308,6 +3447,7 @@ class Game {
       $("net-status").textContent = "Enter a room code to join.";
       return;
     }
+    if (!this.online) this._setMode(true);
     $("net-status").textContent = "Joining " + code.toUpperCase() + "…";
     this.net.join(code, this._playerName(), this.look, this.wantTeam);
   }
@@ -3318,8 +3458,8 @@ class Game {
       return;
     }
     if (msg.t === "open") {
-      if (this.online && !this.running) {
-        if ($("net-status")) $("net-status").textContent = "Connected. Pick a lobby, or create one.";
+      if (!this.running) {
+        if ($("net-status")) $("net-status").textContent = "Lobby live. Pick a room, or create one.";
         this.net.watch();
       }
       return;
@@ -3574,6 +3714,8 @@ class Game {
       if (tag) tag.textContent = "Graphics are not ready yet. Refresh and try again.";
       return;
     }
+    this._settleCareer();
+    this._stopLobbyWatch();
     try {
       this.audio.init();
     } catch (_) {
@@ -3604,9 +3746,11 @@ class Game {
       this.round = 1;
       this.roundLeft = CFG.roundTime;
       this.shopLeft = 0;
-      this.credits = CFG.startCredit;
-      this.owned = { rifle: true };
-      this.weaponId = "rifle";
+      this.credits = Math.max(this.credits, 0);
+      if (!this.owned || typeof this.owned !== "object") this.owned = { rifle: true };
+      this.owned.rifle = true;
+      const startGun = this.owned[this.weaponId] ? this.weaponId : "rifle";
+      this.weaponId = startGun;
       this._firedSemi = false;
       this.aimT = 0;
       this.rmbDown = false;
@@ -3670,7 +3814,7 @@ class Game {
 
       this._rebuildFighters();
       this._setupObjectives();
-      this._equipWeapon("rifle", true);
+      this._equipWeapon(startGun, true);
       if (this.online && this.net.connected) this.net.send({ t: "look", look: sanitizeLook(this.look) });
       if ($("round-num")) $("round-num").textContent = "1";
       if ($("credits-hud")) $("credits-hud").textContent = String(this.credits);
@@ -3699,6 +3843,9 @@ class Game {
       } catch (_) {}
       this._syncLookHint();
       this._requestLock();
+      this._matchOpen = true;
+      this.stats.matches = (this.stats.matches || 0) + 1;
+      this._saveProgress();
     } catch (err) {
       console.error(err);
       $("menu").classList.remove("hidden");
@@ -3872,6 +4019,7 @@ class Game {
       $("weapon-name").textContent = w.name.toUpperCase() + " · " + (w.auto ? "FULL AUTO" : "SEMI AUTO");
     }
     if (this.inShop) this._renderShop();
+    this._saveProgress();
   }
 
   _buyOrEquip(id) {
@@ -3891,6 +4039,7 @@ class Game {
     if ($("credits-hud")) $("credits-hud").textContent = String(this.credits);
     this._renderShop();
     this._banner("BOUGHT " + w.name.toUpperCase());
+    this._saveProgress();
   }
 
   _ranked() {
@@ -4185,8 +4334,10 @@ class Game {
 
   _onPlayerKill(head) {
     this.credits += CFG.killCredit + (head ? CFG.headBonus : 0);
+    this.stats.kills = (this.stats.kills || 0) + 1;
     if ($("credits-hud")) $("credits-hud").textContent = String(this.credits);
     this._giveKillAmmo(this.player);
+    this._saveProgress();
   }
 
   _giveKillAmmo(ent) {
@@ -4225,6 +4376,8 @@ class Game {
     this.audio.death();
     this._feed(attacker, ent, head);
     if (ent.isPlayer) {
+      this.stats.deaths = (this.stats.deaths || 0) + 1;
+      this._saveProgress();
       $("death-screen").classList.remove("hidden");
       $("killed-by").textContent = attacker ? `eliminated by ${attacker.name}` : "eliminated";
     }
@@ -4256,6 +4409,7 @@ class Game {
       .map((f, i) => `${i + 1}. ${f.name}  ${f.kills}–${f.deaths}`)
       .join("<br>");
     this.audio.win();
+    this._settleCareer();
   }
 
   _tracer(ax, ay, az, bx, by, bz) {

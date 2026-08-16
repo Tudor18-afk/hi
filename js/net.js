@@ -46,7 +46,7 @@ export class Net {
     this.ws.onclose = () => {
       this.connected = false;
       this.status = "offline";
-      if (!this.id) this._emit({ t: "err", m: "Could not reach the game server. Hard-refresh this page and try ONLINE again." });
+      if (!this.id) this._emit({ t: "err", m: "Could not reach the game server. Hard-refresh this page." });
       else this._emit({ t: "close" });
     };
     this.ws.onerror = () => {

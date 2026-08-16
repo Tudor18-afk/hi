@@ -238,24 +238,28 @@
         <div class="eyebrow" id="menu-eyebrow">LOCAL OR ONLINE</div>
         <h1>NEXUS<span>ARENA</span></h1>
         <p class="tag">
-          Human operators, outdoor maps, and live look customization. Pick FFA, team deathmatch, capture the flag, or king of the hill.
+          Live lobby on this menu. Credits, guns, look, and career save in this browser. Pick FFA, team deathmatch, capture the flag, or king of the hill.
         </p>
+        <div class="career-bar" id="career-bar">
+          <div><span>CREDITS</span><b id="menu-credits">¢ 200</b></div>
+          <div><span>K / D</span><b id="menu-kd">0–0</b></div>
+          <div><span>WINS</span><b id="menu-wins">0</b></div>
+          <div><span>LOADOUT</span><b id="menu-guns">AR-15</b></div>
+        </div>
         <div class="mode-row">
           <button type="button" class="mode on" id="mode-local">LOCAL</button>
           <button type="button" class="mode" id="mode-online">ONLINE</button>
         </div>
-        <div id="online-actions" class="hidden">
-          <div class="pick-block lobby-block">
-            <div class="pick-label">OPEN LOBBIES</div>
-            <div id="lobby-list">
-              <div class="lobby-empty">Connecting to find rooms…</div>
-            </div>
+        <div class="pick-block lobby-block" id="lobby-panel">
+          <div class="pick-label">LIVE LOBBY</div>
+          <div id="lobby-list">
+            <div class="lobby-empty">Finding open rooms…</div>
           </div>
           <div class="online-row">
             <input id="room-code" type="text" maxlength="4" placeholder="CODE" autocomplete="off" />
             <button id="btn-join" type="button">JOIN</button>
           </div>
-          <div id="net-status">Connecting…</div>
+          <div id="net-status">Finding open lobbies…</div>
         </div>
         <div id="local-actions">
           <button id="btn-start" type="button">PLAY</button>
@@ -315,6 +319,7 @@
         <div class="help">
           <div><kbd>WASD</kbd> move <kbd>SHIFT</kbd> sprint <kbd>SPACE</kbd> jump <kbd>C</kbd> crouch</div>
           <div><kbd>LMB</kbd> fire <kbd>RMB</kbd>/<kbd>E</kbd> aim <kbd>P</kbd> look / crosshair <kbd>Y</kbd> menu <kbd>TAB</kbd> board</div>
+          <div>Lobby list is always on this menu — click a room to join. Progress saves automatically.</div>
           <div>CTF: grab the enemy flag and run it to your pad. Hill: hold the gold ring. Team modes: pick ALPHA or BRAVO.</div>
         </div>
       </div>
