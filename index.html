@@ -35,7 +35,13 @@
         <div id="round-timer">5:00</div>
         <div class="frag-limit">ROUND <b id="round-num">1</b></div>
         <div id="lead-chip">LEAD · <span id="lead-name">—</span> <span id="lead-score">0</span></div>
-        <div id="match-meta"><span id="map-name-hud">WAREHOUSE</span> · <span id="diff-name-hud">NORMAL</span></div>
+        <div id="team-score" class="hidden">
+          <span class="ts a">ALPHA <b id="score-a">0</b></span>
+          <span class="ts vs">VS</span>
+          <span class="ts b"><b id="score-b">0</b> BRAVO</span>
+        </div>
+        <div id="obj-hud"></div>
+        <div id="match-meta"><span id="mode-name-hud">FFA</span> · <span id="map-name-hud">SUNSET RANGE</span> · <span id="diff-name-hud">NORMAL</span></div>
       </div>
 
       <canvas id="minimap" width="176" height="176"></canvas>
@@ -128,7 +134,7 @@
         <div class="eyebrow" id="menu-eyebrow">LOCAL OR ONLINE</div>
         <h1>NEXUS<span>ARENA</span></h1>
         <p class="tag">
-          Fight AI bots, other people, or both. 5-minute rounds, then buy weapons in the armory.
+          Fight outdoors. Pick FFA, team deathmatch, capture the flag, or king of the hill.
         </p>
         <div class="mode-row">
           <button type="button" class="mode on" id="mode-local">LOCAL</button>
@@ -151,6 +157,15 @@
           </label>
         </div>
         <div class="pick-block">
+          <div class="pick-label">GAME MODE</div>
+          <div class="mode-row wrap" id="game-row">
+            <button type="button" class="mode on" data-game="ffa">FFA</button>
+            <button type="button" class="mode" data-game="tdm">TEAM DM</button>
+            <button type="button" class="mode" data-game="ctf">CTF</button>
+            <button type="button" class="mode" data-game="koth">KING HILL</button>
+          </div>
+        </div>
+        <div class="pick-block">
           <div class="pick-label">DIFFICULTY</div>
           <div class="mode-row wrap" id="diff-row">
             <button type="button" class="mode" data-diff="easy">EASY</button>
@@ -162,9 +177,9 @@
         <div class="pick-block">
           <div class="pick-label">MAP</div>
           <div class="mode-row wrap" id="map-row">
-            <button type="button" class="mode on" data-map="warehouse">WAREHOUSE</button>
-            <button type="button" class="mode" data-map="yard">CARGO YARD</button>
-            <button type="button" class="mode" data-map="labs">NIGHT LAB</button>
+            <button type="button" class="mode on" data-map="warehouse">SUNSET RANGE</button>
+            <button type="button" class="mode" data-map="yard">PINE RIDGE</button>
+            <button type="button" class="mode" data-map="labs">HARBOR QUAY</button>
           </div>
         </div>
         <div id="local-actions">
@@ -181,6 +196,7 @@
         <div class="help">
           <div><kbd>WASD</kbd> move <kbd>SHIFT</kbd> sprint <kbd>SPACE</kbd> jump <kbd>C</kbd> crouch</div>
           <div><kbd>LMB</kbd> fire <kbd>RMB</kbd>/<kbd>E</kbd> aim <kbd>R</kbd> reload <kbd>1-4</kbd> guns <kbd>TAB</kbd> board</div>
+          <div>CTF: grab the enemy flag and run it to your pad. Hill: hold the gold ring.</div>
         </div>
       </div>
     </div>

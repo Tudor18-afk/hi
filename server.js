@@ -115,11 +115,13 @@ wss.on("connection", (ws) => {
       const bots = Math.max(0, Math.min(8, Number(msg.bots) || 0));
       const map = ["warehouse", "yard", "labs"].includes(msg.map) ? msg.map : "warehouse";
       const diff = ["easy", "normal", "hard", "insane"].includes(msg.diff) ? msg.diff : "normal";
+      const mode = ["ffa", "tdm", "ctf", "koth"].includes(msg.mode) ? msg.mode : "ffa";
       const room = {
         code,
         bots,
         map,
         diff,
+        mode,
         nextId: 1,
         hostId: 0,
         clients: new Map(),
@@ -131,7 +133,7 @@ wss.on("connection", (ws) => {
       ws.playerId = id;
       ws.roomCode = code;
       rooms.set(code, room);
-      send(ws, { t: "ok", id, code, host: true, bots, map, diff, players: roster(room) });
+      send(ws, { t: "ok", id, code, host: true, bots, map, diff, mode, players: roster(room) });
       return;
     }
 
@@ -153,7 +155,7 @@ wss.on("connection", (ws) => {
       room.clients.set(ws, { ws, id, name, color });
       ws.playerId = id;
       ws.roomCode = code;
-      send(ws, { t: "ok", id, code, host: id === room.hostId, bots: room.bots, map: room.map, diff: room.diff, players: roster(room) });
+      send(ws, { t: "ok", id, code, host: id === room.hostId, bots: room.bots, map: room.map, diff: room.diff, mode: room.mode || "ffa", players: roster(room) });
       broadcast(room, { t: "join", id, name, color, players: roster(room) }, ws);
       return;
     }
@@ -163,7 +165,7 @@ wss.on("connection", (ws) => {
     const from = room.clients.get(ws);
     if (!from) return;
 
-    if (msg.t === "st" || msg.t === "shot" || msg.t === "hit" || msg.t === "bst" || msg.t === "reset" || msg.t === "shop" || msg.t === "next") {
+    if (msg.t === "st" || msg.t === "shot" || msg.t === "hit" || msg.t === "bst" || msg.t === "reset" || msg.t === "shop" || msg.t === "next" || msg.t === "obj") {
       msg.id = from.id;
       broadcast(room, msg, ws);
     }

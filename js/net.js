@@ -54,6 +54,7 @@ export class Net {
         this.bots = msg.bots || 0;
         this.map = msg.map || "warehouse";
         this.diff = msg.diff || "normal";
+        this.mode = msg.mode || "ffa";
         this.players = msg.players || [];
       }
       if (msg.t === "host") this.host = !!msg.host;
@@ -66,9 +67,9 @@ export class Net {
     if (this.ws && this.ws.readyState === 1) this.ws.send(JSON.stringify(obj));
   }
 
-  create(name, bots, map, diff) {
+  create(name, bots, map, diff, mode) {
     this.connect();
-    const go = () => this.send({ t: "create", name, bots, map, diff });
+    const go = () => this.send({ t: "create", name, bots, map, diff, mode });
     if (this.ws && this.ws.readyState === 1) go();
     else this.ws.addEventListener("open", go, { once: true });
   }

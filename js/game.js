@@ -128,10 +128,22 @@ const DIFFICULTY = {
 };
 
 const MAPS = {
-  warehouse: { id: "warehouse", name: "WAREHOUSE" },
-  yard: { id: "yard", name: "CARGO YARD" },
-  labs: { id: "labs", name: "NIGHT LAB" },
+  warehouse: { id: "warehouse", name: "SUNSET RANGE" },
+  yard: { id: "yard", name: "PINE RIDGE" },
+  labs: { id: "labs", name: "HARBOR QUAY" },
 };
+
+const MODES = {
+  ffa: { id: "ffa", name: "FREE FOR ALL", teams: false, short: "FFA" },
+  tdm: { id: "tdm", name: "TEAM DEATHMATCH", teams: true, short: "TDM" },
+  ctf: { id: "ctf", name: "CAPTURE THE FLAG", teams: true, short: "CTF" },
+  koth: { id: "koth", name: "KING OF THE HILL", teams: true, short: "HILL" },
+};
+
+const TEAMS = [
+  { id: 0, name: "ALPHA", color: 0x3ec4ff },
+  { id: 1, name: "BRAVO", color: 0xff6a3d },
+];
 
 const $ = (id) => document.getElementById(id);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -241,6 +253,43 @@ function wallTex() {
     g.fillStyle = "#0e141c";
     for (let y = 0; y < 512; y += 128) g.fillRect(16, y + 96, 480, 8);
   }, 2);
+}
+
+function grassTex() {
+  return makeTex((g) => {
+    g.fillStyle = "#3a6a28";
+    g.fillRect(0, 0, 512, 512);
+    for (let i = 0; i < 900; i++) {
+      g.fillStyle = Math.random() < 0.5 ? "#4a7c32" : "#2e581e";
+      g.fillRect((Math.random() * 512) | 0, (Math.random() * 512) | 0, 6, 4);
+    }
+  }, 12);
+}
+
+function sandTex() {
+  return makeTex((g) => {
+    g.fillStyle = "#c4a060";
+    g.fillRect(0, 0, 512, 512);
+    for (let i = 0; i < 700; i++) {
+      g.fillStyle = Math.random() < 0.5 ? "#d4b070" : "#b89050";
+      g.fillRect((Math.random() * 512) | 0, (Math.random() * 512) | 0, 5, 5);
+    }
+  }, 10);
+}
+
+function dockTex() {
+  return makeTex((g) => {
+    g.fillStyle = "#6a7178";
+    g.fillRect(0, 0, 512, 512);
+    g.strokeStyle = "#5a6168";
+    g.lineWidth = 8;
+    for (let i = 0; i <= 512; i += 64) {
+      g.beginPath();
+      g.moveTo(i, 0);
+      g.lineTo(i, 512);
+      g.stroke();
+    }
+  }, 8);
 }
 
 function crateTex() {
@@ -450,93 +499,72 @@ function buildWorld(scene, mapId) {
   scene.add(root);
 
   const S = CFG.world / 2;
-  const H = 5.4;
+  const H = 3.6;
   const themes = {
     warehouse: {
-      fog: 0x0a1018,
-      floor: 0xd4e0ec,
-      hemi: [0xc8dcff, 0x2a2218, 1.08],
-      sun: 0xfff2d8,
-      sunI: 1.4,
-      lamps: [
-        [-20, -20, 0x88ddff],
-        [20, -20, 0xffb347],
-        [-20, 20, 0xffb347],
-        [20, 20, 0x88ddff],
-        [0, 0, 0x5ce1ff],
-      ],
+      fog: 0xc8e4ff,
+      sky: 0x93d6ff,
+      floor: 0xf2d69a,
+      ground: sandTex(),
+      hemi: [0xfff6e0, 0xd4b080, 1.85],
+      sun: 0xfff7e4,
+      sunI: 2.85,
     },
     yard: {
-      fog: 0x141a10,
-      floor: 0xc8d4b8,
-      hemi: [0xd8e8c0, 0x2a2418, 1.18],
-      sun: 0xffe8c0,
-      sunI: 1.55,
-      lamps: [
-        [-22, -18, 0xffb347],
-        [22, -18, 0xffb347],
-        [-22, 18, 0x88ddff],
-        [22, 18, 0x88ddff],
-        [0, 0, 0xffcc66],
-      ],
+      fog: 0xd4ecd0,
+      sky: 0x96d8ff,
+      floor: 0xc4dc90,
+      ground: grassTex(),
+      hemi: [0xf0ffe8, 0x7a9048, 1.9],
+      sun: 0xfffaee,
+      sunI: 2.7,
     },
     labs: {
-      fog: 0x100c1c,
-      floor: 0xc4cce8,
-      hemi: [0xc8c0f0, 0x180c1c, 0.92],
-      sun: 0xe0d4ff,
-      sunI: 1.15,
-      lamps: [
-        [-12, -12, 0xaa66ff],
-        [12, -12, 0x5ce1ff],
-        [-12, 12, 0x5ce1ff],
-        [12, 12, 0xaa66ff],
-        [0, 0, 0xff66aa],
-      ],
+      fog: 0xd4e4f4,
+      sky: 0xa4dcff,
+      floor: 0xd4d8e0,
+      ground: dockTex(),
+      hemi: [0xf2f8ff, 0x98a8b8, 1.8],
+      sun: 0xfff8ee,
+      sunI: 2.6,
     },
   };
   const theme = themes[mapId] || themes.warehouse;
 
-  const ftex = floorTex();
   const floor = new THREE.Mesh(
-    new THREE.PlaneGeometry(CFG.world + 4, CFG.world + 4),
-    new THREE.MeshStandardMaterial({ map: ftex, roughness: 0.92, metalness: 0.05, color: theme.floor })
+    new THREE.PlaneGeometry(CFG.world + 8, CFG.world + 8),
+    new THREE.MeshStandardMaterial({ map: theme.ground, roughness: 0.95, metalness: 0.02, color: theme.floor })
   );
   floor.rotation.x = -Math.PI / 2;
   floor.receiveShadow = true;
   root.add(floor);
 
-  const ceil = new THREE.Mesh(
-    new THREE.PlaneGeometry(CFG.world + 4, CFG.world + 4),
-    new THREE.MeshStandardMaterial({ color: 0x1a2430, roughness: 0.85, metalness: 0.12 })
+  const sky = new THREE.Mesh(
+    new THREE.SphereGeometry(110, 20, 12),
+    new THREE.MeshBasicMaterial({ color: theme.sky, side: THREE.BackSide, fog: false, depthWrite: false })
   );
-  ceil.rotation.x = Math.PI / 2;
-  ceil.position.y = 8.6;
-  root.add(ceil);
+  sky.position.y = 12;
+  root.add(sky);
 
-  const wtex = wallTex();
-  const wallMat = new THREE.MeshStandardMaterial({
-    map: wtex,
-    roughness: 0.82,
-    metalness: 0.12,
-    color: theme.floor,
-  });
+  const rockMat = new THREE.MeshStandardMaterial({ color: 0x8a7a68, roughness: 0.92, metalness: 0.04 });
+  const wallMat = new THREE.MeshStandardMaterial({ color: 0x9a8a72, roughness: 0.88, metalness: 0.06 });
   const trimMat = new THREE.MeshStandardMaterial({
     color: 0x5ce1ff,
     emissive: 0x5ce1ff,
-    emissiveIntensity: 1.35,
+    emissiveIntensity: 0.85,
     roughness: 0.4,
   });
   const amberMat = new THREE.MeshStandardMaterial({
     color: 0xffb347,
     emissive: 0xffb347,
-    emissiveIntensity: 1.15,
+    emissiveIntensity: 0.75,
     roughness: 0.4,
   });
   const ctex = crateTex();
   const crateMat = new THREE.MeshStandardMaterial({ map: ctex, roughness: 0.7, metalness: 0.05 });
-  const metalMat = new THREE.MeshStandardMaterial({ color: 0x2a3544, roughness: 0.45, metalness: 0.35 });
-  const mats = { wall: wallMat, crate: crateMat, metal: metalMat };
+  const metalMat = new THREE.MeshStandardMaterial({ color: 0x4a5560, roughness: 0.45, metalness: 0.4 });
+  const leafMat = new THREE.MeshStandardMaterial({ color: 0x2f7a28, roughness: 0.85 });
+  const trunkMat = new THREE.MeshStandardMaterial({ color: 0x5a3a22, roughness: 0.9 });
 
   const walls = [
     [0, H / 2, -S - 0.8, CFG.world + 3.2, H, 1.6],
@@ -546,17 +574,8 @@ function buildWorld(scene, mapId) {
   ];
   for (const [x, y, z, w, h, d] of walls) {
     addCollider(colliders, x, y, z, w, h, d);
-    const mesh = makeBoxMesh(x, y, z, w, h, d, wallMat, root);
-    root.add(mesh);
+    root.add(makeBoxMesh(x, y, z, w, h, d, rockMat, root));
   }
-
-  const neon = [
-    [0, 0.06, -S + 0.15, CFG.world - 1, 0.08, 0.12, trimMat],
-    [0, 0.06, S - 0.15, CFG.world - 1, 0.08, 0.12, trimMat],
-    [-S + 0.15, 0.06, 0, 0.12, 0.08, CFG.world - 1, amberMat],
-    [S - 0.15, 0.06, 0, 0.12, 0.08, CFG.world - 1, amberMat],
-  ];
-  for (const [x, y, z, w, h, d, m] of neon) root.add(makeBoxMesh(x, y, z, w, h, d, m, root, false));
 
   function prop(x, z, w, d, h, mat, isCover) {
     addCollider(colliders, x, h / 2, z, w, h, d);
@@ -569,114 +588,124 @@ function buildWorld(scene, mapId) {
     }
   }
 
-  if (mapId === "yard") {
-    prop(-18, -12, 16, 3.4, 2.8, metalMat, true);
-    prop(18, 12, 16, 3.4, 2.8, metalMat, true);
-    prop(-12, 18, 3.4, 14, 2.8, metalMat, true);
-    prop(12, -18, 3.4, 14, 2.8, metalMat, true);
-    prop(0, 0, 3.6, 3.6, 1.4, crateMat, true);
-    prop(-8, 4, 2.2, 2.2, 2.2, crateMat, true);
-    prop(8, -5, 2.2, 2.2, 1.2, crateMat, true);
-    prop(-24, 8, 2.4, 2.4, 1.5, crateMat, true);
-    prop(24, -8, 2.4, 2.4, 1.5, crateMat, true);
-    prop(0, 22, 8, 2.0, 1.8, wallMat, true);
-    prop(0, -22, 8, 2.0, 1.8, wallMat, true);
-  } else if (mapId === "labs") {
-    prop(-20, -8, 12, 1.5, 4.2, wallMat, true);
-    prop(8, -8, 16, 1.5, 4.2, wallMat, true);
-    prop(-8, 8, 16, 1.5, 4.2, wallMat, true);
-    prop(20, 8, 12, 1.5, 4.2, wallMat, true);
-    prop(-8, -20, 1.5, 12, 4.2, wallMat, true);
-    prop(-8, 8, 1.5, 16, 4.2, wallMat, true);
-    prop(8, -8, 1.5, 16, 4.2, wallMat, true);
-    prop(8, 20, 1.5, 12, 4.2, wallMat, true);
-    prop(-20, -20, 6, 6, 3.2, metalMat, true);
-    prop(20, -20, 6, 6, 3.2, metalMat, true);
-    prop(-20, 20, 6, 6, 3.2, metalMat, true);
-    prop(20, 20, 6, 6, 3.2, metalMat, true);
-    prop(0, 0, 2.0, 2.0, 3.8, metalMat, false);
-    root.add(makeBoxMesh(0, 2.2, 0, 0.4, 4.2, 0.4, trimMat, root, false));
-    prop(-14, 0, 1.6, 1.6, 1.2, crateMat, true);
-    prop(14, 0, 1.6, 1.6, 1.2, crateMat, true);
-    prop(0, -14, 1.6, 1.6, 1.2, crateMat, true);
-    prop(0, 14, 1.6, 1.6, 1.2, crateMat, true);
-  } else {
-    prop(0, 0, 2.2, 2.2, 6.5, metalMat, false);
-    root.add(makeBoxMesh(0, 3.4, 0, 0.5, 6.6, 0.5, trimMat, root, false));
-    prop(-15, -15, 3.4, 3.4, 3.4, wallMat, true);
-    prop(15, -15, 3.4, 3.4, 3.4, wallMat, true);
-    prop(-15, 15, 3.4, 3.4, 3.4, wallMat, true);
-    prop(15, 15, 3.4, 3.4, 3.4, wallMat, true);
-    prop(0, -19, 9, 2.0, 2.6, wallMat, true);
-    prop(0, 19, 9, 2.0, 2.6, wallMat, true);
-    prop(-19, 0, 2.0, 9, 2.6, wallMat, true);
-    prop(19, 0, 2.0, 9, 2.6, wallMat, true);
-    const crates = [
-      [-8, -5.2, 1.6, 1.6, 1.2],
-      [-8, -3.4, 1.6, 1.6, 1.2],
-      [7.4, 5.2, 1.7, 1.7, 2.2],
-      [9.2, 5.2, 1.6, 1.6, 1.1],
-      [-22, 10, 2.1, 2.1, 1.35],
-      [22, -10, 2.1, 2.1, 1.35],
-      [-6, 12, 1.5, 1.5, 1.15],
-      [6, -12, 1.5, 1.5, 1.15],
-      [-24, -22, 2.4, 2.4, 2.0],
-      [24, 22, 2.4, 2.4, 2.0],
-      [-4, 0, 1.4, 1.4, 1.1],
-      [4.2, -2, 1.4, 1.4, 1.8],
-      [-11, 6, 1.5, 1.5, 1.2],
-      [11, -7, 1.5, 1.5, 1.2],
-    ];
-    for (const [x, z, w, d, h] of crates) prop(x, z, w, d, h, crateMat, true);
+  function tree(x, z) {
+    addCollider(colliders, x, 1.1, z, 0.7, 2.2, 0.7);
+    const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.28, 2.2, 6), trunkMat);
+    trunk.position.set(x, 1.1, z);
+    trunk.castShadow = true;
+    root.add(trunk);
+    const leaf = new THREE.Mesh(new THREE.ConeGeometry(1.6, 3.2, 7), leafMat);
+    leaf.position.set(x, 3.3, z);
+    leaf.castShadow = true;
+    root.add(leaf);
+    cover.push(new THREE.Vector3(x + 1.8, 0, z));
+    cover.push(new THREE.Vector3(x - 1.8, 0, z));
   }
 
+  if (mapId === "yard") {
+    tree(-22, -18);
+    tree(22, 18);
+    tree(-20, 20);
+    tree(20, -20);
+    tree(-8, -24);
+    tree(8, 24);
+    tree(-24, 6);
+    tree(24, -6);
+    prop(-14, -10, 4.2, 2.2, 1.2, trunkMat, true);
+    prop(14, 10, 4.2, 2.2, 1.2, trunkMat, true);
+    prop(-10, 12, 2.4, 2.4, 1.5, crateMat, true);
+    prop(10, -12, 2.4, 2.4, 1.5, crateMat, true);
+    prop(0, -18, 8, 2.2, 1.6, rockMat, true);
+    prop(0, 18, 8, 2.2, 1.6, rockMat, true);
+    prop(-16, 0, 2.2, 6, 1.4, rockMat, true);
+    prop(16, 0, 2.2, 6, 1.4, rockMat, true);
+  } else if (mapId === "labs") {
+    prop(-18, -12, 14, 3.2, 2.6, metalMat, true);
+    prop(18, 12, 14, 3.2, 2.6, metalMat, true);
+    prop(-12, 16, 3.2, 12, 2.6, metalMat, true);
+    prop(12, -16, 3.2, 12, 2.6, metalMat, true);
+    prop(-8, 4, 2.2, 2.2, 2.0, crateMat, true);
+    prop(8, -5, 2.2, 2.2, 1.4, crateMat, true);
+    prop(-22, 8, 2.6, 2.6, 1.6, crateMat, true);
+    prop(22, -8, 2.6, 2.6, 1.6, crateMat, true);
+    prop(0, 22, 7, 2.0, 1.5, wallMat, true);
+    prop(0, -22, 7, 2.0, 1.5, wallMat, true);
+    root.add(makeBoxMesh(-26, 4.2, 8, 0.6, 8.4, 0.6, metalMat, root, false));
+    root.add(makeBoxMesh(26, 4.2, -8, 0.6, 8.4, 0.6, metalMat, root, false));
+  } else {
+    prop(-14, -14, 4.4, 4.4, 2.2, rockMat, true);
+    prop(14, -14, 4.4, 4.4, 2.2, rockMat, true);
+    prop(-14, 14, 4.4, 4.4, 2.2, rockMat, true);
+    prop(14, 14, 4.4, 4.4, 2.2, rockMat, true);
+    prop(0, -20, 10, 2.4, 1.6, rockMat, true);
+    prop(0, 20, 10, 2.4, 1.6, rockMat, true);
+    prop(-20, 0, 2.4, 8, 1.6, rockMat, true);
+    prop(20, 0, 2.4, 8, 1.6, rockMat, true);
+    prop(-8, -6, 2.0, 2.0, 1.3, crateMat, true);
+    prop(8, 6, 2.0, 2.0, 1.8, crateMat, true);
+    prop(-22, 10, 2.4, 2.4, 1.4, rockMat, true);
+    prop(22, -10, 2.4, 2.4, 1.4, rockMat, true);
+    tree(-24, -8);
+    tree(24, 8);
+  }
+
+  const hillRing = new THREE.Mesh(
+    new THREE.TorusGeometry(5.2, 0.12, 6, 24),
+    new THREE.MeshStandardMaterial({ color: 0xffe08a, emissive: 0xffcc66, emissiveIntensity: 0.85, roughness: 0.5 })
+  );
+  hillRing.rotation.x = Math.PI / 2;
+  hillRing.position.y = 0.08;
+  hillRing.visible = false;
+  root.add(hillRing);
+
+  const flagA = new THREE.Vector3(-24, 0, 0);
+  const flagB = new THREE.Vector3(24, 0, 0);
+  const padA = makeBoxMesh(flagA.x, 0.08, flagA.z, 3.2, 0.16, 3.2, trimMat, root, false);
+  const padB = makeBoxMesh(flagB.x, 0.08, flagB.z, 3.2, 0.16, 3.2, amberMat, root, false);
+  padA.visible = false;
+  padB.visible = false;
+
   const spawnPts = [
-    [-26, -26],
-    [26, -26],
-    [-26, 26],
-    [26, 26],
-    [-26, 0],
-    [26, 0],
-    [0, -26],
-    [0, 26],
-    [-10, -26],
-    [10, 26],
+    [-26, -22, 0],
+    [-26, 22, 0],
+    [-26, 0, 0],
+    [-22, -26, 0],
+    [-22, 26, 0],
+    [26, -22, 1],
+    [26, 22, 1],
+    [26, 0, 1],
+    [22, -26, 1],
+    [22, 26, 1],
   ];
-  for (const [x, z] of spawnPts) spawns.push(new THREE.Vector3(x, 0, z));
+  for (const [x, z, team] of spawnPts) {
+    const v = new THREE.Vector3(x, 0, z);
+    v.team = team;
+    spawns.push(v);
+  }
 
   root.add(new THREE.HemisphereLight(theme.hemi[0], theme.hemi[1], theme.hemi[2]));
-  const sun = new THREE.DirectionalLight(theme.sun, theme.sunI || 1.4);
-  sun.position.set(18, 32, 12);
+  const sun = new THREE.DirectionalLight(theme.sun, theme.sunI || 2.2);
+  sun.position.set(22, 42, 16);
   sun.castShadow = true;
   sun.shadow.mapSize.set(1024, 1024);
   sun.shadow.camera.near = 2;
-  sun.shadow.camera.far = 80;
-  sun.shadow.camera.left = -40;
-  sun.shadow.camera.right = 40;
-  sun.shadow.camera.top = 40;
-  sun.shadow.camera.bottom = -40;
+  sun.shadow.camera.far = 90;
+  sun.shadow.camera.left = -42;
+  sun.shadow.camera.right = 42;
+  sun.shadow.camera.top = 42;
+  sun.shadow.camera.bottom = -42;
   sun.shadow.bias = -0.00025;
   root.add(sun);
-  const fill = new THREE.DirectionalLight(0xb8d4ff, 0.48);
-  fill.position.set(-16, 18, -12);
+  const fill = new THREE.DirectionalLight(0xe8f4ff, 0.95);
+  fill.position.set(-18, 22, -14);
   root.add(fill);
+  const bounce = new THREE.HemisphereLight(0xfff6e0, 0xd8bc90, 0.5);
+  root.add(bounce);
 
-  for (const [x, z, col] of theme.lamps) {
-    const l = new THREE.PointLight(col, 3.8, 36, 1.2);
-    l.position.set(x, 6.4, z);
-    root.add(l);
-    const bulb = new THREE.Mesh(
-      new THREE.BoxGeometry(0.7, 0.14, 0.7),
-      new THREE.MeshStandardMaterial({ color: col, emissive: col, emissiveIntensity: 3.4 })
-    );
-    bulb.position.set(x, 8.2, z);
-    root.add(bulb);
-  }
+  scene.background = new THREE.Color(theme.sky);
+  scene.fog = new THREE.Fog(theme.fog, 58, 148);
 
-  scene.background = new THREE.Color(theme.fog);
-  scene.fog = new THREE.Fog(theme.fog, 32, 108);
-
-  return { colliders, cover, spawns, root };
+  return { colliders, cover, spawns, root, flagA, flagB, padA, padB, hillRing, hill: { x: 0, z: 0, r: 5.2 } };
 }
 
 function matSteel(hex, rough = 0.32, metal = 0.82) {
@@ -903,6 +932,17 @@ class Game {
     this.botCount = 8;
     this.mapId = "warehouse";
     this.diffId = "normal";
+    this.modeId = "ffa";
+    this.mode = MODES.ffa;
+    this.teamScore = [0, 0];
+    this.flags = [];
+    this.hill = { x: 0, z: 0, r: 5.2 };
+    this.flagHomes = [new THREE.Vector3(-24, 0, 0), new THREE.Vector3(24, 0, 0)];
+    this._hillAcc = 0;
+    this._hillHold = -1;
+    this.hillRing = null;
+    this.padA = null;
+    this.padB = null;
     this.difficulty = DIFFICULTY.normal;
     this.online = false;
     this.humans = [];
@@ -946,10 +986,10 @@ class Game {
     this.renderer.shadowMap.type = THREE.PCFShadowMap;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.38;
+    this.renderer.toneMappingExposure = 1.72;
 
     this.scene = new THREE.Scene();
-    this.camera = new THREE.PerspectiveCamera(78, innerWidth / innerHeight, 0.05, 120);
+    this.camera = new THREE.PerspectiveCamera(78, innerWidth / innerHeight, 0.05, 180);
     this.camera.rotation.order = "YXZ";
 
     this._loadMap("warehouse");
@@ -1034,6 +1074,11 @@ class Game {
       const btn = e.target.closest("[data-map]");
       if (!btn) return;
       this._setMap(btn.dataset.map);
+    });
+    $("game-row").addEventListener("click", (e) => {
+      const btn = e.target.closest("[data-game]");
+      if (!btn) return;
+      this._setGame(btn.dataset.game);
     });
     $("mode-local").addEventListener("click", () => this._setMode(false));
     $("mode-online").addEventListener("click", () => this._setMode(true));
@@ -1281,7 +1326,238 @@ class Game {
     this.nav = new NavGrid(CFG.world, 1.5, this.colliders);
     this.mapId = mapId;
     this._miniWalls = null;
+    this.flagHomes = [built.flagA.clone(), built.flagB.clone()];
+    this.hill = built.hill || { x: 0, z: 0, r: 5.2 };
+    this.hillRing = built.hillRing || null;
+    this.padA = built.padA || null;
+    this.padB = built.padB || null;
+    if (this.flagGroup) {
+      this.scene.remove(this.flagGroup);
+      this.flagGroup = null;
+      this.flags = [];
+    }
     if ($("map-name-hud")) $("map-name-hud").textContent = MAPS[mapId].name;
+  }
+
+  _setGame(id) {
+    const mode = MODES[id] || MODES.ffa;
+    this.modeId = mode.id;
+    this.mode = mode;
+    for (const btn of $("game-row").querySelectorAll("[data-game]")) {
+      btn.classList.toggle("on", btn.dataset.game === mode.id);
+    }
+    if ($("mode-name-hud")) $("mode-name-hud").textContent = mode.short;
+  }
+
+  _isTeamMode() {
+    return !!(this.mode && this.mode.teams);
+  }
+
+  _sameTeam(a, b) {
+    return this._isTeamMode() && a && b && a.team === b.team;
+  }
+
+  _assignTeam(ent, index) {
+    if (!this._isTeamMode()) {
+      ent.team = -1;
+      return;
+    }
+    ent.team = index % 2;
+    const col = TEAMS[ent.team].color;
+    ent.color = col;
+    if (ent.isPlayer) ent.color = col;
+  }
+
+  _makeFlagMesh(color) {
+    const g = new THREE.Group();
+    const pole = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.05, 0.06, 2.4, 6),
+      new THREE.MeshStandardMaterial({ color: 0xdddddd, metalness: 0.6, roughness: 0.3 })
+    );
+    pole.position.y = 1.2;
+    g.add(pole);
+    const cloth = new THREE.Mesh(
+      new THREE.BoxGeometry(0.85, 0.5, 0.04),
+      new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.8, roughness: 0.45 })
+    );
+    cloth.position.set(0.42, 2.0, 0);
+    g.add(cloth);
+    return g;
+  }
+
+  _setupObjectives() {
+    if (this.flagGroup) this.scene.remove(this.flagGroup);
+    this.flagGroup = new THREE.Group();
+    this.scene.add(this.flagGroup);
+    const a = this.flagHomes[0] || new THREE.Vector3(-24, 0, 0);
+    const b = this.flagHomes[1] || new THREE.Vector3(24, 0, 0);
+    this.flags = [
+      { team: 0, home: a.clone(), pos: a.clone(), carrierId: null, mesh: this._makeFlagMesh(TEAMS[0].color) },
+      { team: 1, home: b.clone(), pos: b.clone(), carrierId: null, mesh: this._makeFlagMesh(TEAMS[1].color) },
+    ];
+    this.flagGroup.add(this.flags[0].mesh);
+    this.flagGroup.add(this.flags[1].mesh);
+    this.flagGroup.visible = this.modeId === "ctf";
+    if (this.hillRing) this.hillRing.visible = this.modeId === "koth";
+    if (this.padA) this.padA.visible = this.modeId === "ctf";
+    if (this.padB) this.padB.visible = this.modeId === "ctf";
+    this._poseFlags();
+    this.teamScore = [0, 0];
+    this._hillAcc = 0;
+    this._hillHold = -1;
+  }
+
+  _dropFlag(ent) {
+    if (!ent || this.modeId !== "ctf") return;
+    for (const fl of this.flags) {
+      if (fl.carrierId === ent.id) {
+        fl.carrierId = null;
+        fl.pos.set(ent.pos.x, 0, ent.pos.z);
+      }
+    }
+    this._poseFlags();
+  }
+
+  _flagState(fl) {
+    if (!fl) return "—";
+    if (fl.carrierId != null) {
+      const c = this._byId(fl.carrierId);
+      return "TAKEN" + (c ? " · " + c.name : "");
+    }
+    if (fl.home && fl.pos.distanceTo(fl.home) > 1.4) return "DROPPED";
+    return "HOME";
+  }
+
+  _objFeed(text) {
+    const row = document.createElement("div");
+    row.className = "feed-row";
+    row.innerHTML = `<b>${text}</b>`;
+    const feed = $("killfeed");
+    if (!feed) return;
+    feed.prepend(row);
+    while (feed.children.length > 6) feed.lastChild.remove();
+    setTimeout(() => row.remove(), 4200);
+  }
+
+  _updateObjectives(dt) {
+    if (this._driveRounds()) {
+      if (this.modeId === "ctf") this._updateCtf();
+      else if (this.modeId === "koth") this._updateKoth(dt);
+    }
+    this._poseFlags();
+  }
+
+  _updateCtf() {
+    if (this.flags.length < 2) return;
+    for (const f of this.fighters) {
+      if (!f.alive || f.team < 0) continue;
+      const own = this.flags[f.team];
+      const enemy = this.flags[1 - f.team];
+      if (!own || !enemy) continue;
+
+      if (own.carrierId == null && own.pos.distanceTo(own.home) > 1.2 && f.pos.distanceTo(own.pos) < 1.75) {
+        this._resetFlag(own);
+        this._banner("FLAG RETURNED");
+        this._objFeed(f.name + " returned the " + TEAMS[own.team].name + " flag");
+      }
+
+      if (enemy.carrierId == null && f.pos.distanceTo(enemy.pos) < 1.75) {
+        const holding = this.flags.some((fl) => fl.carrierId === f.id);
+        if (!holding) {
+          enemy.carrierId = f.id;
+          this._banner(f.name + " TOOK THE FLAG");
+          this._objFeed(f.name + " took the " + TEAMS[enemy.team].name + " flag");
+        }
+      }
+
+      if (
+        enemy.carrierId === f.id &&
+        own.carrierId == null &&
+        own.pos.distanceTo(own.home) < 1.2 &&
+        f.pos.distanceTo(own.home) < 2.5
+      ) {
+        this.teamScore[f.team] += 1;
+        this._resetFlag(enemy);
+        if (f.isPlayer) {
+          this.credits += 150;
+          if ($("credits-hud")) $("credits-hud").textContent = String(this.credits);
+        }
+        this._banner(TEAMS[f.team].name + " CAPTURE " + this.teamScore[f.team]);
+        this._objFeed(f.name + " captured for " + TEAMS[f.team].name);
+      }
+    }
+  }
+
+  _updateKoth(dt) {
+    const present = [0, 0];
+    const r2 = (this.hill.r || 5.2) * (this.hill.r || 5.2);
+    for (const f of this.fighters) {
+      if (!f.alive || f.team < 0) continue;
+      const dx = f.pos.x - this.hill.x;
+      const dz = f.pos.z - this.hill.z;
+      if (dx * dx + dz * dz <= r2) present[f.team] += 1;
+    }
+    if (present[0] && present[1]) this._hillHold = -2;
+    else if (present[0]) this._hillHold = 0;
+    else if (present[1]) this._hillHold = 1;
+    else this._hillHold = -1;
+    if (this._hillHold >= 0) {
+      this._hillAcc += dt;
+      while (this._hillAcc >= 1) {
+        this._hillAcc -= 1;
+        this.teamScore[this._hillHold] += 1;
+      }
+    } else {
+      this._hillAcc = 0;
+    }
+  }
+
+  _objPayload() {
+    return {
+      t: "obj",
+      a: this.teamScore[0] | 0,
+      b: this.teamScore[1] | 0,
+      h: this._hillHold,
+      flags: this.flags.map((fl) => ({
+        x: Math.round(fl.pos.x * 100) / 100,
+        z: Math.round(fl.pos.z * 100) / 100,
+        c: fl.carrierId == null ? -1 : fl.carrierId,
+      })),
+    };
+  }
+
+  _applyObj(msg) {
+    if (this._driveRounds()) return;
+    if (msg.a != null) this.teamScore[0] = msg.a;
+    if (msg.b != null) this.teamScore[1] = msg.b;
+    if (msg.h != null) this._hillHold = msg.h;
+    if (msg.flags && this.flags.length) {
+      for (let i = 0; i < 2; i++) {
+        const s = msg.flags[i];
+        if (!s || !this.flags[i]) continue;
+        this.flags[i].pos.set(s.x, 0, s.z);
+        this.flags[i].carrierId = s.c >= 0 ? s.c : null;
+      }
+    }
+    this._poseFlags();
+  }
+
+  _poseFlags() {
+    for (const f of this.flags) {
+      const c = f.carrierId != null ? this._byId(f.carrierId) : null;
+      if (c && c.alive) {
+        f.pos.set(c.pos.x, 0, c.pos.z);
+        f.mesh.position.set(c.pos.x, 0.15, c.pos.z);
+      } else {
+        f.mesh.position.set(f.pos.x, 0, f.pos.z);
+      }
+    }
+  }
+
+  _resetFlag(f) {
+    f.carrierId = null;
+    f.pos.copy(f.home);
+    this._poseFlags();
   }
 
   _setDifficulty(id) {
@@ -1323,7 +1599,7 @@ class Game {
 
   _createRoom() {
     $("net-status").textContent = "Creating room…";
-    this.net.create(this._playerName(), parseInt($("bots").value, 10), this.mapId, this.diffId);
+    this.net.create(this._playerName(), parseInt($("bots").value, 10), this.mapId, this.diffId, this.modeId);
   }
 
   _joinRoom() {
@@ -1352,6 +1628,7 @@ class Game {
         host: msg.host,
         map: msg.map,
         diff: msg.diff,
+        mode: msg.mode,
       });
       return;
     }
@@ -1368,7 +1645,8 @@ class Game {
     if (msg.t === "hit") this._netHit(msg);
     if (msg.t === "shop") this._openShop(true);
     if (msg.t === "next") this._nextRound(true);
-    if (msg.t === "reset") this.startMatch({ keepOnline: true });
+    if (msg.t === "obj") this._applyObj(msg);
+    if (msg.t === "reset") this.startMatch({ keepOnline: true, mode: this.modeId, map: this.mapId, diff: this.diffId });
   }
 
   _byId(id) {
@@ -1383,6 +1661,8 @@ class Game {
     if (!id || (this.player && id === this.player.id) || this._byId(id)) return null;
     const f = this._makeFighter(name || "PLAYER", color || 0x8892a0, false);
     f.id = id;
+    this._assignTeam(f, id - 1);
+    if (this._isTeamMode() && f.team >= 0) f.color = TEAMS[f.team].color;
     f.isRemote = true;
     f.isBot = !!isBot;
     f.arch = isBot ? ARCHETYPES[id % ARCHETYPES.length] : { id: "human" };
@@ -1416,6 +1696,7 @@ class Game {
     f.crouching = !!msg.cr;
     if (msg.k != null) f.kills = msg.k;
     if (msg.d != null) f.deaths = msg.d;
+    if (msg.team != null) f.team = msg.team;
   }
 
   _applyBotStates(list) {
@@ -1430,6 +1711,7 @@ class Game {
       f.alive = !!b.alive;
       if (b.k != null) f.kills = b.k;
       if (b.d != null) f.deaths = b.d;
+      if (b.team != null) f.team = b.team;
     }
     for (const bot of [...this.bots]) {
       if (bot.isRemote && !seen.has(bot.id)) this._removeRemote(bot.id);
@@ -1527,6 +1809,7 @@ class Game {
       cr: p.crouching ? 1 : 0,
       k: p.kills,
       d: p.deaths,
+      team: p.team,
     });
     if (this.net.host && this.bots.length) {
       this.net.send({
@@ -1543,9 +1826,11 @@ class Game {
           alive: b.alive ? 1 : 0,
           k: b.kills,
           d: b.deaths,
+          team: b.team,
         })),
       });
     }
+    if (this.net.host && this._isTeamMode()) this.net.send(this._objPayload());
   }
 
   startMatch(opts = {}) {
@@ -1562,6 +1847,7 @@ class Game {
       if (opts.host != null) this.net.host = !!opts.host;
       this.botCount = opts.bots != null ? opts.bots : parseInt($("bots").value, 10);
       if (opts.diff && DIFFICULTY[opts.diff]) this._setDifficulty(opts.diff);
+      if (opts.mode && MODES[opts.mode]) this._setGame(opts.mode);
       const wantMap = opts.map && MAPS[opts.map] ? opts.map : this.mapId;
       if (!this.worldRoot || wantMap !== this.mapId) this._loadMap(wantMap);
       $("menu").classList.add("hidden");
@@ -1597,9 +1883,9 @@ class Game {
       this.effects.length = 0;
 
       const myName = this._playerName();
-      const myColor = this.online ? 0x5ce1ff : 0x5ce1ff;
-      this.player = this._makeFighter(myName, myColor, true);
+      this.player = this._makeFighter(myName, 0x5ce1ff, true);
       if (opts.netId) this.player.id = opts.netId;
+      this._assignTeam(this.player, this.player.id - 1);
 
       const simulateBots = !this.online || this.net.host;
       if (simulateBots) {
@@ -1607,12 +1893,15 @@ class Game {
           const op = OPERATORS[i % OPERATORS.length];
           const bot = this._makeFighter(op.name, op.color, false);
           bot.id = 1000 + i;
+          this._assignTeam(bot, this.player.team === 0 ? i + 1 : i);
+          const col = this._isTeamMode() ? TEAMS[bot.team].color : op.color;
+          bot.color = col;
           bot.arch = ARCHETYPES[i % ARCHETYPES.length];
           bot.health = this.difficulty.hp;
           bot.maxHealth = this.difficulty.hp;
           bot.react = bot.arch.react * this.difficulty.react;
           bot.strafeDir = Math.random() < 0.5 ? 1 : -1;
-          const rig = createOperator(op.color, op.name);
+          const rig = createOperator(col, op.name);
           this.scene.add(rig.group);
           bot.rig = rig;
           this.bots.push(bot);
@@ -1627,6 +1916,7 @@ class Game {
       }
 
       this._rebuildFighters();
+      this._setupObjectives();
       this._equipWeapon("rifle", true);
       if ($("round-num")) $("round-num").textContent = "1";
       if ($("credits-hud")) $("credits-hud").textContent = String(this.credits);
@@ -1643,7 +1933,12 @@ class Game {
         this._banner("ROOM " + this.net.code);
       } else {
         $("room-chip").classList.add("hidden");
-        this._banner((MAPS[this.mapId] ? MAPS[this.mapId].name : "ARENA") + " · " + this.difficulty.name);
+        this._banner(
+          (this.mode ? this.mode.short + " · " : "") +
+            (MAPS[this.mapId] ? MAPS[this.mapId].name : "ARENA") +
+            " · " +
+            this.difficulty.name
+        );
       }
       try {
         this.audio.spawn();
@@ -1664,6 +1959,7 @@ class Game {
       name,
       color,
       isPlayer,
+      team: -1,
       pos: new THREE.Vector3(),
       netPos: new THREE.Vector3(),
       netYaw: 0,
@@ -1714,9 +2010,11 @@ class Game {
   _spawn(ent, used = new Set()) {
     let best = 0;
     let bestScore = -1;
+    let found = false;
     for (let i = 0; i < this.spawns.length; i++) {
       if (used.has(i)) continue;
       const s = this.spawns[i];
+      if (this._isTeamMode() && s.team != null && ent.team >= 0 && s.team !== ent.team) continue;
       let score = 1000;
       for (const o of this.fighters) {
         if (o === ent || !o.alive) continue;
@@ -1725,6 +2023,14 @@ class Game {
       if (score > bestScore) {
         bestScore = score;
         best = i;
+        found = true;
+      }
+    }
+    if (!found) {
+      for (let i = 0; i < this.spawns.length; i++) {
+        if (used.has(i)) continue;
+        best = i;
+        break;
       }
     }
     const s = this.spawns[best];
@@ -1837,10 +2143,10 @@ class Game {
   _boardHtml() {
     return this._ranked()
       .slice(0, 8)
-      .map(
-        (f, i) =>
-          `<div class="lb-row ${f.isPlayer ? "you" : ""}"><span>${i + 1}. ${f.name}</span><b>${f.kills}–${f.deaths}</b></div>`
-      )
+      .map((f, i) => {
+        const tag = this._isTeamMode() && f.team >= 0 ? TEAMS[f.team].name[0] + " " : "";
+        return `<div class="lb-row ${f.isPlayer ? "you" : ""}"><span>${i + 1}. ${tag}${f.name}</span><b>${f.kills}–${f.deaths}</b></div>`;
+      })
       .join("");
   }
 
@@ -1919,6 +2225,11 @@ class Game {
       this._spawn(f, used);
       used.add(f.spawnIndex);
     }
+    if (this.modeId === "ctf") {
+      for (const fl of this.flags) this._resetFlag(fl);
+    }
+    this._hillAcc = 0;
+    this._hillHold = -1;
     this._equipWeapon(this.weaponId, true);
     $("death-screen").classList.add("hidden");
     this._updateHud();
@@ -1984,6 +2295,8 @@ class Game {
     }
     for (const f of this.fighters) {
       if (!f.alive || f.id === ignoreId) continue;
+      const src = this._byId(ignoreId);
+      if (src && this._sameTeam(src, f)) continue;
       const by = f.pos.y + (f.crouching ? 0.72 : 1.08);
       const tb = raySphere(ox, oy, oz, dx, dy, dz, f.pos.x, by, f.pos.z, 0.36, best);
       if (tb !== null && tb < best) {
@@ -2034,6 +2347,7 @@ class Game {
       if (i === 0) this._tracer(ox, oy, oz, hit.x, hit.y, hit.z);
       if (i === 0) this._sparks(hit.x, hit.y, hit.z);
       if (hit.ent) {
+        if (this._sameTeam(ent, hit.ent)) continue;
         const dmgBase = shotDmg * (hit.head ? CFG.headMult : 1) * rand(0.92, 1.05);
         const dmg = ent.isPlayer ? dmgBase : dmgBase * this.difficulty.dmg;
         if (this.online && hit.ent.isRemote && ent.isPlayer) {
@@ -2062,6 +2376,7 @@ class Game {
 
   hurt(ent, dmg, attacker, head, hit, fromNet = false) {
     if (!ent || !ent.alive) return;
+    if (attacker && this._sameTeam(ent, attacker)) return;
     ent.health -= dmg;
     ent.lastHurtBy = attacker;
     ent.lastHurtAt = this.time;
@@ -2115,11 +2430,15 @@ class Game {
     ent.vel.set(0, 0, 0);
     if (attacker && attacker !== ent) {
       attacker.kills += 1;
+      if (this.modeId === "tdm" && attacker.team >= 0 && !this._sameTeam(attacker, ent)) {
+        this.teamScore[attacker.team] += 1;
+      }
       if (attacker.isPlayer) {
         this.credits += CFG.killCredit + (head ? CFG.headBonus : 0);
         if ($("credits-hud")) $("credits-hud").textContent = String(this.credits);
       }
     }
+    this._dropFlag(ent);
     this.audio.death();
     this._feed(attacker, ent, head);
     if (ent.isPlayer) {
@@ -2207,6 +2526,7 @@ class Game {
     }
     for (const b of this.bots) this._updateBot(b, dt);
     this._separate();
+    this._updateObjectives(dt);
     for (const f of this.fighters) {
       if (f.isRemote) continue;
       if (!f.alive) {
@@ -2466,6 +2786,7 @@ class Game {
     let bestScore = 1e9;
     for (const o of this.fighters) {
       if (o === bot || !o.alive) continue;
+      if (this._sameTeam(bot, o)) continue;
       const dist = bot.pos.distanceTo(o.pos);
       if (dist > 48) continue;
       const fov = bot.lastHurtAt > this.time - 2.2 ? 6.3 : bot.arch.fov;
@@ -2538,10 +2859,27 @@ class Game {
       threat &&
       threat.alive &&
       this.los(bot.pos.x, bot.pos.y + 1.5, bot.pos.z, threat.pos.x, threat.pos.y + 1.3, threat.pos.z);
+    const dist = seeThreat ? bot.pos.distanceTo(threat.pos) : 1e9;
+    const carrying = this.modeId === "ctf" && this.flags.some((fl) => fl.carrierId === bot.id);
 
-    if (seeThreat) {
+    if (carrying && bot.team >= 0) {
+      const home = this.flagHomes[bot.team] || { x: -24, z: 0 };
+      this._follow(bot, home.x, home.z);
+      wishx = bot._wx || 0;
+      wishz = bot._wz || 0;
+      speed *= 1.08;
+      if (seeThreat) {
+        bot.react -= dt;
+        bot.yaw = lerpAng(bot.yaw, yawTo(bot.pos.x, bot.pos.z, threat.pos.x, threat.pos.z), 1 - Math.exp(-8 * dt));
+      } else if (wishx || wishz) {
+        bot.yaw = lerpAng(
+          bot.yaw,
+          yawTo(bot.pos.x, bot.pos.z, bot.pos.x + wishx, bot.pos.z + wishz),
+          1 - Math.exp(-6 * dt)
+        );
+      }
+    } else if (seeThreat) {
       bot.react -= dt;
-      const dist = bot.pos.distanceTo(threat.pos);
       bot.yaw = lerpAng(bot.yaw, yawTo(bot.pos.x, bot.pos.z, threat.pos.x, threat.pos.z), 1 - Math.exp(-8 * dt));
       const low = bot.health < 38 && arch.agr < 0.8;
       if (low) {
@@ -2575,28 +2913,6 @@ class Game {
           wishz *= 0.25;
         }
       }
-
-      if (bot.react <= 0 && bot.reloadT <= 0 && bot.ammo > 0 && bot.shootCd <= 0 && dist < 48) {
-        const rpm = arch.id === "sniper" ? 210 : arch.id === "rusher" ? 720 : 520;
-        bot.shootCd = 60 / rpm;
-        bot.ammo -= 1;
-        const eye = 1.48;
-        const ox = bot.pos.x - Math.sin(bot.yaw) * 0.45;
-        const oy = bot.pos.y + eye;
-        const oz = bot.pos.z - Math.cos(bot.yaw) * 0.45;
-        const ty = threat.pos.y + (threat.crouching ? 0.9 : 1.25);
-        let dx = threat.pos.x - ox;
-        let dy = ty - oy;
-        let dz = threat.pos.z - oz;
-        const dl = Math.hypot(dx, dy, dz) || 1;
-        dx /= dl;
-        dy /= dl;
-        dz /= dl;
-        const spread =
-          (0.028 / (arch.acc * this.difficulty.acc)) * (1 + dist / 50) * this.difficulty.spread +
-          (Math.hypot(bot.vel.x, bot.vel.z) > 2 ? 0.02 : 0);
-        this.fire(bot, ox, oy, oz, dx, dy, dz, spread);
-      }
     } else {
       bot.react = arch.react * this.difficulty.react;
       let gx = null;
@@ -2607,6 +2923,13 @@ class Game {
       } else if (bot.alert && this.time - bot.alertAt < 6) {
         gx = bot.alert.x;
         gz = bot.alert.z;
+      } else if (this.modeId === "ctf" && bot.team >= 0 && this.flags[1 - bot.team]) {
+        const enemy = this.flags[1 - bot.team];
+        gx = enemy.pos.x;
+        gz = enemy.pos.z;
+      } else if (this.modeId === "koth") {
+        gx = this.hill.x;
+        gz = this.hill.z;
       }
       if (gx == null) {
         if (!bot.path.length || bot.repath <= 0) {
@@ -2622,6 +2945,28 @@ class Game {
       wishx = bot._wx;
       wishz = bot._wz;
       if (wishx || wishz) bot.yaw = lerpAng(bot.yaw, yawTo(bot.pos.x, bot.pos.z, bot.pos.x + wishx, bot.pos.z + wishz), 1 - Math.exp(-6 * dt));
+    }
+
+    if (seeThreat && bot.react <= 0 && bot.reloadT <= 0 && bot.ammo > 0 && bot.shootCd <= 0 && dist < 48) {
+      const rpm = arch.id === "sniper" ? 210 : arch.id === "rusher" ? 720 : 520;
+      bot.shootCd = 60 / rpm;
+      bot.ammo -= 1;
+      const eye = 1.48;
+      const ox = bot.pos.x - Math.sin(bot.yaw) * 0.45;
+      const oy = bot.pos.y + eye;
+      const oz = bot.pos.z - Math.cos(bot.yaw) * 0.45;
+      const ty = threat.pos.y + (threat.crouching ? 0.9 : 1.25);
+      let dx = threat.pos.x - ox;
+      let dy = ty - oy;
+      let dz = threat.pos.z - oz;
+      const dl = Math.hypot(dx, dy, dz) || 1;
+      dx /= dl;
+      dy /= dl;
+      dz /= dl;
+      const spread =
+        (0.028 / (arch.acc * this.difficulty.acc)) * (1 + dist / 50) * this.difficulty.spread +
+        (Math.hypot(bot.vel.x, bot.vel.z) > 2 ? 0.02 : 0);
+      this.fire(bot, ox, oy, oz, dx, dy, dz, spread);
     }
 
     const moved = Math.hypot(bot.pos.x - bot.lastXZ.x, bot.pos.z - bot.lastXZ.y);
@@ -2728,6 +3073,30 @@ class Game {
       $("round-timer").textContent = fmtTime(this.roundLeft);
       $("round-timer").classList.toggle("low", this.roundLeft <= 30);
     }
+    const teamMode = this._isTeamMode();
+    if ($("team-score")) $("team-score").classList.toggle("hidden", !teamMode);
+    if ($("lead-chip")) $("lead-chip").classList.toggle("hidden", teamMode);
+    if (teamMode) {
+      if ($("score-a")) $("score-a").textContent = String(this.teamScore[0] | 0);
+      if ($("score-b")) $("score-b").textContent = String(this.teamScore[1] | 0);
+    }
+    if ($("mode-name-hud")) {
+      let t = this.mode.short;
+      if (teamMode && p.team >= 0) t += " · " + TEAMS[p.team].name;
+      $("mode-name-hud").textContent = t;
+    }
+    if ($("obj-hud")) {
+      if (this.modeId === "ctf" && this.flags.length === 2) {
+        $("obj-hud").textContent =
+          "A " + this._flagState(this.flags[0]) + "   ·   B " + this._flagState(this.flags[1]);
+      } else if (this.modeId === "koth") {
+        const h = this._hillHold;
+        $("obj-hud").textContent =
+          h === 0 ? "HILL · ALPHA" : h === 1 ? "HILL · BRAVO" : h === -2 ? "HILL · CONTESTED" : "HILL · OPEN";
+      } else {
+        $("obj-hud").textContent = "";
+      }
+    }
     this._hudAcc += dt;
     const slow = this._hudAcc >= 0.1;
     if (slow) {
@@ -2746,7 +3115,9 @@ class Game {
         $("sb-body").innerHTML = ranked
           .map(
             (f) =>
-              `<tr class="${f.isPlayer ? "you" : ""} ${f.alive ? "" : "dead"}"><td>${f.name}${
+              `<tr class="${f.isPlayer ? "you" : ""} ${f.alive ? "" : "dead"}"><td>${
+                this._isTeamMode() && f.team >= 0 ? TEAMS[f.team].name + " · " : ""
+              }${f.name}${
                 f.isPlayer ? "" : f.arch ? " · " + String(f.arch.id).toUpperCase() : ""
               }</td><td>${f.kills}</td><td>${f.deaths}</td><td>${f.alive ? "LIVE" : "DOWN"}</td></tr>`
           )
@@ -2762,11 +3133,11 @@ class Game {
     const off = document.createElement("canvas");
     off.width = off.height = W;
     const g = off.getContext("2d");
-    g.fillStyle = "#05080c";
+    g.fillStyle = this.mapId === "yard" ? "#1a3320" : this.mapId === "labs" ? "#1c2834" : "#2a2418";
     g.fillRect(0, 0, W, W);
     const S = CFG.world;
     const map = (x, z) => [((x + S / 2) / S) * W, ((z + S / 2) / S) * W];
-    g.fillStyle = "#243044";
+    g.fillStyle = this.mapId === "yard" ? "#4a6a38" : this.mapId === "labs" ? "#4a5560" : "#8a7048";
     for (const b of this.colliders) {
       const [x1, y1] = map(b.min.x, b.min.z);
       const [x2, y2] = map(b.max.x, b.max.z);
@@ -2785,6 +3156,20 @@ class Game {
     g.drawImage(this._miniWalls, 0, 0);
     const S = CFG.world;
     const map = (x, z) => [((x + S / 2) / S) * W, ((z + S / 2) / S) * W];
+    if (this.modeId === "koth") {
+      const [hx, hy] = map(this.hill.x, this.hill.z);
+      g.strokeStyle = "#ffe08a";
+      g.beginPath();
+      g.arc(hx, hy, 12, 0, Math.PI * 2);
+      g.stroke();
+    }
+    if (this.modeId === "ctf") {
+      for (const fl of this.flags) {
+        const [fx, fy] = map(fl.pos.x, fl.pos.z);
+        g.fillStyle = hex(TEAMS[fl.team].color);
+        g.fillRect(fx - 3, fy - 3, 6, 6);
+      }
+    }
     for (const other of this.fighters) {
       if (!other || other.isPlayer || !other.alive) continue;
       const [x, y] = map(other.pos.x, other.pos.z);

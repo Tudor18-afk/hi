@@ -175,6 +175,28 @@ canvas#view {
   letter-spacing: 0.14em;
   color: var(--amber);
 }
+#team-score {
+  margin-top: 8px;
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  align-items: baseline;
+  font-family: var(--mono);
+  font-size: 14px;
+  letter-spacing: 0.12em;
+}
+#team-score .ts.a { color: #3ec4ff; }
+#team-score .ts.b { color: #ff6a3d; }
+#team-score .ts.vs { color: var(--muted); font-size: 10px; }
+#team-score b { font-size: 22px; }
+#obj-hud {
+  margin-top: 6px;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  color: var(--cyan);
+  min-height: 14px;
+}
 #match-meta {
   margin-top: 4px;
   font-family: var(--mono);
