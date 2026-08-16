@@ -112,7 +112,7 @@
 
     <div id="paused" class="hidden">
       <h2>PAUSED</h2>
-      <p>Click PLAY to jump back in. Press P for crosshair settings. Mouse lock is optional.</p>
+      <p>Click PLAY to jump back in. Press P to change your look and crosshair. Mouse lock is optional.</p>
       <button id="btn-resume" type="button">PLAY</button>
     </div>
 
@@ -120,6 +120,42 @@
       <div class="set-panel">
         <div class="eyebrow">PRESS P TO CLOSE</div>
         <h2>SETTINGS</h2>
+        <div class="pick-label">YOUR OPERATOR</div>
+        <canvas id="look-preview" width="140" height="180"></canvas>
+        <p class="look-note">This is how you look in the arena. Friends see it in online rooms.</p>
+        <div class="mode-row wrap">
+          <button type="button" class="mode" id="look-random-btn">RANDOMIZE</button>
+        </div>
+        <div class="pick-label">SKIN</div>
+        <div class="xh-colors" id="look-skin-row"></div>
+        <div class="pick-label">HAIR</div>
+        <div class="mode-row wrap" id="look-hair-row">
+          <button type="button" class="mode" data-look-hair="bald">BALD</button>
+          <button type="button" class="mode" data-look-hair="buzz">BUZZ</button>
+          <button type="button" class="mode on" data-look-hair="short">SHORT</button>
+          <button type="button" class="mode" data-look-hair="long">LONG</button>
+          <button type="button" class="mode" data-look-hair="mohawk">HAWK</button>
+          <button type="button" class="mode" data-look-hair="pony">PONY</button>
+        </div>
+        <div class="pick-label">HAIR COLOR</div>
+        <div class="xh-colors" id="look-hairc-row"></div>
+        <div class="pick-label">SHIRT</div>
+        <div class="xh-colors" id="look-shirt-row"></div>
+        <div class="pick-label">PANTS</div>
+        <div class="xh-colors" id="look-pants-row"></div>
+        <div class="pick-label">GEAR</div>
+        <div class="mode-row wrap" id="look-gear-row">
+          <button type="button" class="mode on" id="look-vest-btn">VEST</button>
+          <button type="button" class="mode on" data-look-helm="none">NO HELM</button>
+          <button type="button" class="mode" data-look-helm="cap">CAP</button>
+          <button type="button" class="mode" data-look-helm="tactical">HELMET</button>
+        </div>
+        <div class="mode-row wrap" id="look-beard-row">
+          <button type="button" class="mode on" data-look-beard="none">CLEAN</button>
+          <button type="button" class="mode" data-look-beard="stubble">STUBBLE</button>
+          <button type="button" class="mode" data-look-beard="full">BEARD</button>
+        </div>
+        <div class="pick-label">CROSSHAIR</div>
         <div class="xh-preview-wrap">
           <div id="xh-preview" class="xh" data-style="default">
             <i class="ring"></i>
@@ -194,7 +230,7 @@
         <div class="eyebrow" id="menu-eyebrow">LOCAL OR ONLINE</div>
         <h1>NEXUS<span>ARENA</span></h1>
         <p class="tag">
-          Fight outdoors. Pick FFA, team deathmatch, capture the flag, or king of the hill.
+          Human operators, outdoor maps, and live look customization. Pick FFA, team deathmatch, capture the flag, or king of the hill.
         </p>
         <div class="mode-row">
           <button type="button" class="mode on" id="mode-local">LOCAL</button>
@@ -205,6 +241,9 @@
             <span>YOUR NAME</span>
             <input id="player-name" type="text" maxlength="12" value="YOU" autocomplete="off" />
           </label>
+          <div class="mode-row wrap">
+            <button type="button" class="mode" id="btn-customize">CUSTOMIZE LOOK (P)</button>
+          </div>
           <label>
             <span>MOUSE SENSITIVITY</span>
             <input id="sens" type="range" min="0.4" max="2.8" step="0.1" value="1.2" />
@@ -255,7 +294,7 @@
         </div>
         <div class="help">
           <div><kbd>WASD</kbd> move <kbd>SHIFT</kbd> sprint <kbd>SPACE</kbd> jump <kbd>C</kbd> crouch</div>
-          <div><kbd>LMB</kbd> fire <kbd>RMB</kbd>/<kbd>E</kbd> aim <kbd>R</kbd> reload <kbd>1-4</kbd> guns <kbd>TAB</kbd> board <kbd>P</kbd> settings</div>
+          <div><kbd>LMB</kbd> fire <kbd>RMB</kbd>/<kbd>E</kbd> aim <kbd>P</kbd> look / crosshair <kbd>TAB</kbd> board</div>
           <div>CTF: grab the enemy flag and run it to your pad. Hill: hold the gold ring.</div>
         </div>
       </div>

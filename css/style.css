@@ -677,13 +677,28 @@ canvas#view {
 }
 #settings.hidden { display: none !important; }
 .set-panel {
-  width: min(560px, 92vw);
+  width: min(640px, 94vw);
   max-height: 92vh;
   overflow: auto;
   background: rgba(8, 12, 18, 0.94);
   border: 1px solid var(--line);
-  padding: 28px 28px 22px;
+  padding: 22px 24px 18px;
   text-align: center;
+}
+#look-preview {
+  display: block;
+  margin: 8px auto 8px;
+  width: 140px;
+  height: 180px;
+  background: #121820;
+  border: 1px solid rgba(92, 225, 255, 0.25);
+  border-radius: 8px;
+}
+.look-note {
+  color: var(--muted);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  margin: 0 0 10px;
 }
 .set-panel h2 {
   letter-spacing: 0.28em;
@@ -704,6 +719,7 @@ canvas#view {
 }
 .xh-colors {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   justify-content: center;
   margin: 8px 0 16px;

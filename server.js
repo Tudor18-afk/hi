@@ -17,6 +17,28 @@ const TYPES = {
 
 const COLORS = [0xc23b3b, 0x7a3dff, 0x2ea44f, 0x2e8bc9, 0xd4a017, 0xe056a0, 0x8892a0, 0x4dd4c0];
 const ABC = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+const HAIR = new Set(["bald", "buzz", "short", "long", "mohawk", "pony"]);
+const HELMS = new Set(["none", "cap", "tactical"]);
+const BEARDS = new Set(["none", "stubble", "full"]);
+
+function sanitizeLook(raw) {
+  const o = raw && typeof raw === "object" ? raw : {};
+  const num = (v, fb) => {
+    const n = Number(v);
+    return Number.isFinite(n) ? n >>> 0 : fb;
+  };
+  return {
+    skin: num(o.skin, 0xe8c4a0),
+    hair: HAIR.has(o.hair) ? o.hair : "short",
+    hairColor: num(o.hairColor, 0x2a1a12),
+    shirt: num(o.shirt, 0x3d4a38),
+    pants: num(o.pants, 0x2a2e32),
+    vest: !(o.vest === false || o.vest === 0),
+    helmet: HELMS.has(o.helmet) ? o.helmet : "none",
+    beard: BEARDS.has(o.beard) ? o.beard : "none",
+    iris: num(o.iris, 0x3a5a38),
+  };
+}
 
 function makeCode() {
   let s = "";
@@ -36,6 +58,7 @@ function roster(room) {
     name: c.name,
     color: c.color,
     host: c.id === room.hostId,
+    look: c.look || null,
   }));
 }
 
@@ -129,7 +152,8 @@ wss.on("connection", (ws) => {
       const id = room.nextId++;
       room.hostId = id;
       const color = COLORS[0];
-      room.clients.set(ws, { ws, id, name, color });
+      const look = sanitizeLook(msg.look);
+      room.clients.set(ws, { ws, id, name, color, look });
       ws.playerId = id;
       ws.roomCode = code;
       rooms.set(code, room);
@@ -152,11 +176,12 @@ wss.on("connection", (ws) => {
       const name = String(msg.name || "PLAYER").slice(0, 12).toUpperCase() || "PLAYER";
       const id = room.nextId++;
       const color = COLORS[(id - 1) % COLORS.length];
-      room.clients.set(ws, { ws, id, name, color });
+      const look = sanitizeLook(msg.look);
+      room.clients.set(ws, { ws, id, name, color, look });
       ws.playerId = id;
       ws.roomCode = code;
       send(ws, { t: "ok", id, code, host: id === room.hostId, bots: room.bots, map: room.map, diff: room.diff, mode: room.mode || "ffa", players: roster(room) });
-      broadcast(room, { t: "join", id, name, color, players: roster(room) }, ws);
+      broadcast(room, { t: "join", id, name, color, look, players: roster(room) }, ws);
       return;
     }
 
@@ -165,8 +190,23 @@ wss.on("connection", (ws) => {
     const from = room.clients.get(ws);
     if (!from) return;
 
+    if (msg.t === "look") {
+      from.look = sanitizeLook(msg.look);
+      broadcast(room, { t: "look", id: from.id, name: from.name, color: from.color, look: from.look }, ws);
+      return;
+    }
+
     if (msg.t === "st" || msg.t === "shot" || msg.t === "hit" || msg.t === "bst" || msg.t === "reset" || msg.t === "shop" || msg.t === "next" || msg.t === "obj") {
       msg.id = from.id;
+      if (msg.look) {
+        from.look = sanitizeLook(msg.look);
+        msg.look = from.look;
+      }
+      if (msg.t === "bst" && Array.isArray(msg.bots)) {
+        for (const b of msg.bots) {
+          if (b && b.look) b.look = sanitizeLook(b.look);
+        }
+      }
       broadcast(room, msg, ws);
     }
   });

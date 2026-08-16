@@ -163,6 +163,66 @@ const lerp = (a, b, t) => a + (b - a) * t;
 const rand = (a, b) => a + Math.random() * (b - a);
 const hex = (n) => "#" + n.toString(16).padStart(6, "0");
 
+const SKINS = [0xf6d5b8, 0xe8c4a0, 0xd4a07a, 0xc48a5c, 0xa0673c, 0x7a4a28, 0x5a3218, 0x3e2414];
+const HAIR_STYLES = ["bald", "buzz", "short", "long", "mohawk", "pony"];
+const HAIR_COLORS = [0x140e0a, 0x2a1a12, 0x5a3a22, 0xc4a05a, 0x8a2818, 0x4a4a4c, 0xe8e0d4];
+const SHIRTS = [0x3d4a38, 0x2a3848, 0x4a3428, 0x1c1d20, 0x5a2424, 0xd0c8bc, 0x2e4a3c, 0x3a3a5a];
+const PANTS = [0x2a2e32, 0x3a342c, 0x1a1c20, 0x3a3a48, 0x4a4034, 0x243028];
+const HELMETS = ["none", "cap", "tactical"];
+const BEARDS = ["none", "stubble", "full"];
+
+const LOOK_DEFAULT = {
+  skin: 0xe8c4a0,
+  hair: "short",
+  hairColor: 0x2a1a12,
+  shirt: 0x3d4a38,
+  pants: 0x2a2e32,
+  vest: true,
+  helmet: "none",
+  beard: "none",
+  iris: 0x3a5a38,
+};
+
+function sanitizeLook(raw) {
+  const d = LOOK_DEFAULT;
+  const o = raw && typeof raw === "object" ? raw : {};
+  const num = (v, fb) => {
+    const n = Number(v);
+    return Number.isFinite(n) ? n >>> 0 : fb;
+  };
+  return {
+    skin: num(o.skin, d.skin),
+    hair: HAIR_STYLES.includes(o.hair) ? o.hair : d.hair,
+    hairColor: num(o.hairColor, d.hairColor),
+    shirt: num(o.shirt, d.shirt),
+    pants: num(o.pants, d.pants),
+    vest: !(o.vest === false || o.vest === 0),
+    helmet: HELMETS.includes(o.helmet) ? o.helmet : d.helmet,
+    beard: BEARDS.includes(o.beard) ? o.beard : d.beard,
+    iris: num(o.iris, d.iris),
+  };
+}
+
+function lookKey(l) {
+  const x = sanitizeLook(l);
+  return [x.skin, x.hair, x.hairColor, x.shirt, x.pants, x.vest ? 1 : 0, x.helmet, x.beard, x.iris].join(".");
+}
+
+function randomLook(seedColor) {
+  const pick = (arr) => arr[(Math.random() * arr.length) | 0];
+  return sanitizeLook({
+    skin: pick(SKINS),
+    hair: pick(HAIR_STYLES),
+    hairColor: pick(HAIR_COLORS),
+    shirt: seedColor || pick(SHIRTS),
+    pants: pick(PANTS),
+    vest: Math.random() < 0.6,
+    helmet: pick(HELMETS),
+    beard: pick(BEARDS),
+    iris: pick([0x3a5a38, 0x3a4a6a, 0x5a3a22, 0x2a2a2a]),
+  });
+}
+
 function fmtTime(sec) {
   const s = Math.max(0, Math.ceil(sec));
   const m = Math.floor(s / 60);
@@ -1154,89 +1214,259 @@ function makeLabel(text, color) {
   return spr;
 }
 
-function createOperator(color, name) {
+function matSkin(col) {
+  return new THREE.MeshStandardMaterial({ color: col, roughness: 0.58, metalness: 0.02 });
+}
+
+function matCloth(col, rough = 0.78) {
+  return new THREE.MeshStandardMaterial({ color: col, roughness: rough, metalness: 0.04 });
+}
+
+function faceTexture(look) {
+  const c = document.createElement("canvas");
+  c.width = c.height = 256;
+  const g = c.getContext("2d");
+  const sk = hex(look.skin);
+  g.fillStyle = sk;
+  g.fillRect(0, 0, 256, 256);
+  g.fillStyle = "rgba(0,0,0,0.06)";
+  g.fillRect(0, 0, 256, 70);
+  const eye = (x) => {
+    g.fillStyle = "#f4f0ea";
+    g.beginPath();
+    g.ellipse(x, 128, 11, 7, 0, 0, Math.PI * 2);
+    g.fill();
+    g.fillStyle = hex(look.iris);
+    g.beginPath();
+    g.arc(x, 129, 5, 0, Math.PI * 2);
+    g.fill();
+    g.fillStyle = "#111";
+    g.beginPath();
+    g.arc(x, 129, 2.4, 0, Math.PI * 2);
+    g.fill();
+    g.fillStyle = "rgba(255,255,255,0.7)";
+    g.beginPath();
+    g.arc(x - 2, 127, 1.2, 0, Math.PI * 2);
+    g.fill();
+  };
+  eye(108);
+  eye(148);
+  g.fillStyle = hex(look.hairColor);
+  g.globalAlpha = 0.85;
+  g.fillRect(92, 112, 22, 3);
+  g.fillRect(142, 112, 22, 3);
+  g.globalAlpha = 1;
+  g.fillStyle = "rgba(80,40,30,0.18)";
+  g.beginPath();
+  g.ellipse(128, 148, 7, 10, 0, 0, Math.PI * 2);
+  g.fill();
+  g.strokeStyle = "rgba(80,40,40,0.45)";
+  g.lineWidth = 2;
+  g.beginPath();
+  g.moveTo(116, 172);
+  g.quadraticCurveTo(128, 178, 140, 172);
+  g.stroke();
+  if (look.beard !== "none") {
+    g.fillStyle = hex(look.hairColor);
+    g.globalAlpha = look.beard === "full" ? 0.72 : 0.28;
+    g.beginPath();
+    g.ellipse(128, 188, look.beard === "full" ? 28 : 22, look.beard === "full" ? 22 : 12, 0, 0, Math.PI * 2);
+    g.fill();
+    g.globalAlpha = 1;
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+
+function addShadow(mesh) {
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  return mesh;
+}
+
+function createCharacter(look, name, opts = {}) {
+  look = sanitizeLook(look);
+  const team = opts.teamColor != null ? opts.teamColor : null;
   const g = new THREE.Group();
-  const mat = new THREE.MeshStandardMaterial({ color, roughness: 0.48, metalness: 0.28 });
-  const dark = new THREE.MeshStandardMaterial({ color: 0x12161c, roughness: 0.62, metalness: 0.18 });
-  const accent = new THREE.MeshStandardMaterial({ color: 0x2a323c, roughness: 0.55, metalness: 0.35 });
-  const visor = new THREE.MeshStandardMaterial({
-    color,
-    emissive: color,
-    emissiveIntensity: 1.15,
-    roughness: 0.18,
-    metalness: 0.4,
-  });
+  const skin = matSkin(look.skin);
+  const shirt = matCloth(look.shirt, 0.74);
+  const pants = matCloth(look.pants, 0.82);
+  const boot = matCloth(0x1a1c20, 0.7);
+  const vestCol = team != null ? team : 0x2c3238;
+  const vest = matCloth(vestCol, 0.55);
+  vest.metalness = 0.18;
+  const hairM = matCloth(look.hairColor, 0.72);
+  const dark = matCloth(0x16181c, 0.6);
 
-  const torso = new THREE.Mesh(new THREE.BoxGeometry(0.56, 0.7, 0.32), mat);
-  torso.position.y = 1.16;
-  torso.castShadow = true;
-  g.add(torso);
-
-  const plate = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.28, 0.12), accent);
-  plate.position.set(0, 1.22, -0.14);
-  g.add(plate);
-
-  const hips = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.16, 0.28), dark);
-  hips.position.y = 0.78;
+  const hips = addShadow(new THREE.Mesh(new THREE.SphereGeometry(0.12, 10, 8), pants));
+  hips.position.y = 0.92;
+  hips.scale.set(1.35, 0.7, 1.1);
   g.add(hips);
 
-  const head = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.3, 0.34), dark);
+  const torso = addShadow(new THREE.Mesh(new THREE.CapsuleGeometry(0.16, 0.38, 4, 10), shirt));
+  torso.position.y = 1.28;
+  g.add(torso);
+
+  const belt = addShadow(new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.05, 0.24), dark));
+  belt.position.y = 1.06;
+  g.add(belt);
+  const shL = addShadow(new THREE.Mesh(new THREE.SphereGeometry(0.055, 8, 6), shirt));
+  shL.position.set(-0.2, 1.44, 0);
+  const shR = addShadow(new THREE.Mesh(new THREE.SphereGeometry(0.055, 8, 6), shirt));
+  shR.position.set(0.2, 1.44, 0);
+  g.add(shL, shR);
+
+  if (look.vest) {
+    const v = addShadow(new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.36, 0.26), vest));
+    v.position.y = 1.26;
+    g.add(v);
+    const strap = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.32, 0.28), vest);
+    strap.position.set(-0.14, 1.32, 0);
+    g.add(strap);
+    const strap2 = strap.clone();
+    strap2.position.x = 0.14;
+    g.add(strap2);
+  }
+
+  const neck = addShadow(new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.06, 0.1, 8), skin));
+  neck.position.y = 1.54;
+  g.add(neck);
+
+  const head = addShadow(new THREE.Mesh(new THREE.SphereGeometry(0.115, 16, 12), new THREE.MeshStandardMaterial({
+    map: faceTexture(look),
+    color: 0xffffff,
+    roughness: 0.55,
+    metalness: 0.02,
+  })));
   head.position.y = 1.66;
-  head.castShadow = true;
+  head.rotation.y = -Math.PI / 2;
   g.add(head);
+  const nose = addShadow(new THREE.Mesh(new THREE.SphereGeometry(0.02, 7, 6), skin));
+  nose.position.set(0, 1.635, -0.108);
+  nose.scale.set(0.85, 1.05, 1.15);
+  g.add(nose);
 
-  const helm = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.08, 0.38), accent);
-  helm.position.y = 1.82;
-  g.add(helm);
+  const earG = new THREE.SphereGeometry(0.028, 6, 5);
+  const earL = addShadow(new THREE.Mesh(earG, skin));
+  earL.position.set(-0.11, 1.66, 0);
+  const earR = addShadow(new THREE.Mesh(earG, skin));
+  earR.position.set(0.11, 1.66, 0);
+  g.add(earL, earR);
 
-    const vis = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.1, 0.06), visor);
-  vis.position.set(0, 1.64, -0.17);
-  g.add(vis);
-  const lpad = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.14, 0.22), accent);
-  lpad.position.set(-0.34, 1.42, 0);
-  g.add(lpad);
-  const rpad = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.14, 0.22), accent);
-  rpad.position.set(0.34, 1.42, 0);
-  g.add(rpad);
+  if (look.hair !== "bald" && look.helmet !== "tactical") {
+    if (look.hair === "buzz") {
+      const cap = new THREE.Mesh(new THREE.SphereGeometry(0.118, 12, 8, 0, Math.PI * 2, 0, 1.2), hairM);
+      cap.position.y = 1.685;
+      g.add(cap);
+    } else if (look.hair === "short") {
+      const cap = new THREE.Mesh(new THREE.SphereGeometry(0.122, 12, 8, 0, Math.PI * 2, 0, 1.35), hairM);
+      cap.position.y = 1.69;
+      g.add(cap);
+    } else if (look.hair === "long") {
+      const cap = new THREE.Mesh(new THREE.SphereGeometry(0.125, 12, 8, 0, Math.PI * 2, 0, 1.4), hairM);
+      cap.position.y = 1.69;
+      g.add(cap);
+      const fall = addShadow(new THREE.Mesh(new THREE.CapsuleGeometry(0.07, 0.22, 3, 8), hairM));
+      fall.position.set(0, 1.48, 0.08);
+      g.add(fall);
+    } else if (look.hair === "mohawk") {
+      const m = addShadow(new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.14, 0.22), hairM));
+      m.position.set(0, 1.78, 0);
+      g.add(m);
+    } else if (look.hair === "pony") {
+      const cap = new THREE.Mesh(new THREE.SphereGeometry(0.12, 10, 8, 0, Math.PI * 2, 0, 1.2), hairM);
+      cap.position.y = 1.69;
+      g.add(cap);
+      const tail = addShadow(new THREE.Mesh(new THREE.CapsuleGeometry(0.035, 0.2, 3, 6), hairM));
+      tail.position.set(0, 1.52, 0.12);
+      tail.rotation.x = 0.5;
+      g.add(tail);
+    }
+  }
+
+  if (look.helmet === "cap") {
+    const brim = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.02, 0.12), dark);
+    brim.position.set(0, 1.74, -0.12);
+    g.add(brim);
+    const cap = new THREE.Mesh(new THREE.SphereGeometry(0.125, 12, 8, 0, Math.PI * 2, 0, 1.15), dark);
+    cap.position.y = 1.72;
+    g.add(cap);
+  } else if (look.helmet === "tactical") {
+    const helm = addShadow(new THREE.Mesh(new THREE.SphereGeometry(0.13, 12, 8, 0, Math.PI * 2, 0, 1.45), dark));
+    helm.position.y = 1.7;
+    g.add(helm);
+    const visor = new THREE.Mesh(
+      new THREE.BoxGeometry(0.2, 0.06, 0.04),
+      new THREE.MeshStandardMaterial({
+        color: team != null ? team : 0x223344,
+        emissive: team != null ? team : 0x112233,
+        emissiveIntensity: 0.45,
+        roughness: 0.2,
+        metalness: 0.5,
+      })
+    );
+    visor.position.set(0, 1.66, -0.1);
+    g.add(visor);
+  }
 
   const larm = new THREE.Group();
-  larm.position.set(-0.38, 1.34, 0);
-  const larmM = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.56, 0.14), mat);
-  larmM.position.y = -0.22;
-  larm.add(larmM);
+  larm.position.set(-0.22, 1.42, 0);
+  const lu = addShadow(new THREE.Mesh(new THREE.CapsuleGeometry(0.045, 0.22, 3, 8), shirt));
+  lu.position.y = -0.14;
+  const lf = addShadow(new THREE.Mesh(new THREE.CapsuleGeometry(0.038, 0.2, 3, 8), skin));
+  lf.position.y = -0.38;
+  const lh = addShadow(new THREE.Mesh(new THREE.SphereGeometry(0.04, 8, 6), skin));
+  lh.position.y = -0.52;
+  larm.add(lu, lf, lh);
   g.add(larm);
 
   const rarm = new THREE.Group();
-  rarm.position.set(0.38, 1.34, 0);
-  const rarmM = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.56, 0.14), mat);
-  rarmM.position.y = -0.22;
-  rarm.add(rarmM);
+  rarm.position.set(0.22, 1.42, 0);
+  const ru = addShadow(new THREE.Mesh(new THREE.CapsuleGeometry(0.045, 0.22, 3, 8), shirt));
+  ru.position.y = -0.14;
+  const rf = addShadow(new THREE.Mesh(new THREE.CapsuleGeometry(0.038, 0.2, 3, 8), skin));
+  rf.position.y = -0.38;
+  const rh = addShadow(new THREE.Mesh(new THREE.SphereGeometry(0.04, 8, 6), skin));
+  rh.position.y = -0.52;
+  rarm.add(ru, rf, rh);
   g.add(rarm);
 
   const lleg = new THREE.Group();
-  lleg.position.set(-0.16, 0.7, 0);
-  const llegM = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.7, 0.18), dark);
-  llegM.position.y = -0.35;
-  lleg.add(llegM);
+  lleg.position.set(-0.09, 0.9, 0);
+  const lt = addShadow(new THREE.Mesh(new THREE.CapsuleGeometry(0.06, 0.32, 3, 8), pants));
+  lt.position.y = -0.2;
+  const ls = addShadow(new THREE.Mesh(new THREE.CapsuleGeometry(0.05, 0.3, 3, 8), pants));
+  ls.position.y = -0.52;
+  const lb = addShadow(new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.08, 0.16), boot));
+  lb.position.set(0, -0.72, 0.02);
+  lleg.add(lt, ls, lb);
   g.add(lleg);
 
   const rleg = new THREE.Group();
-  rleg.position.set(0.16, 0.7, 0);
-  const rlegM = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.7, 0.18), dark);
-  rlegM.position.y = -0.35;
-  rleg.add(rlegM);
+  rleg.position.set(0.09, 0.9, 0);
+  const rt = addShadow(new THREE.Mesh(new THREE.CapsuleGeometry(0.06, 0.32, 3, 8), pants));
+  rt.position.y = -0.2;
+  const rs = addShadow(new THREE.Mesh(new THREE.CapsuleGeometry(0.05, 0.3, 3, 8), pants));
+  rs.position.y = -0.52;
+  const rb = addShadow(new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.08, 0.16), boot));
+  rb.position.set(0, -0.72, 0.02);
+  rleg.add(rt, rs, rb);
   g.add(rleg);
 
   const gun = createWeapon("rifle");
-  gun.scale.set(0.9, 0.9, 0.9);
-  gun.position.set(0.22, 1.28, -0.42);
-  g.add(gun);
+  gun.scale.set(0.85, 0.85, 0.85);
+  gun.position.set(0.04, -0.42, -0.32);
+  gun.rotation.set(-1.15, 0.05, 0.02);
+  rarm.add(gun);
 
-  const tag = makeLabel(name, hex(color));
+  const tagCol = team != null ? team : look.shirt;
+  const tag = makeLabel(name, hex(tagCol));
+  tag.position.y = 0.48;
   g.add(tag);
 
   const hpGroup = new THREE.Group();
-  hpGroup.position.y = 1.92;
+  hpGroup.position.y = 2.02;
   const hpBg = new THREE.Mesh(
     new THREE.PlaneGeometry(0.82, 0.07),
     new THREE.MeshBasicMaterial({ color: 0x111111, depthTest: false })
@@ -1253,6 +1483,124 @@ function createOperator(color, name) {
   g.add(hpGroup);
 
   return { group: g, larm, rarm, lleg, rleg, gun, tag, hpFg, hpGroup };
+}
+
+function createOperator(color, name, look) {
+  const l = look ? sanitizeLook(look) : randomLook(color);
+  return createCharacter(l, name, {});
+}
+
+function createViewArms(look) {
+  look = sanitizeLook(look);
+  const g = new THREE.Group();
+  const skin = matSkin(look.skin);
+  const shirt = matCloth(look.shirt, 0.74);
+  const ru = new THREE.Mesh(new THREE.CapsuleGeometry(0.045, 0.2, 3, 7), shirt);
+  ru.rotation.z = -1.15;
+  ru.rotation.x = 0.35;
+  ru.position.set(0.22, -0.18, -0.22);
+  const rf = new THREE.Mesh(new THREE.CapsuleGeometry(0.038, 0.16, 3, 7), skin);
+  rf.rotation.z = -1.05;
+  rf.rotation.x = 0.55;
+  rf.position.set(0.28, -0.24, -0.4);
+  const rh = new THREE.Mesh(new THREE.SphereGeometry(0.042, 8, 6), skin);
+  rh.position.set(0.3, -0.26, -0.55);
+  const lu = new THREE.Mesh(new THREE.CapsuleGeometry(0.04, 0.16, 3, 7), shirt);
+  lu.rotation.z = 1.05;
+  lu.rotation.x = 0.45;
+  lu.position.set(-0.08, -0.22, -0.28);
+  const lf = new THREE.Mesh(new THREE.CapsuleGeometry(0.034, 0.14, 3, 7), skin);
+  lf.rotation.z = 0.85;
+  lf.rotation.x = 0.7;
+  lf.position.set(0.02, -0.26, -0.48);
+  const lh = new THREE.Mesh(new THREE.SphereGeometry(0.036, 8, 6), skin);
+  lh.position.set(0.12, -0.27, -0.6);
+  g.add(ru, rf, rh, lu, lf, lh);
+  g.traverse((m) => {
+    if (m.isMesh) {
+      m.castShadow = false;
+      m.receiveShadow = false;
+    }
+  });
+  return g;
+}
+
+function drawLookPreview(canvas, look) {
+  if (!canvas) return;
+  look = sanitizeLook(look);
+  const g = canvas.getContext("2d");
+  const w = canvas.width;
+  const h = canvas.height;
+  g.clearRect(0, 0, w, h);
+  g.fillStyle = "#121820";
+  g.fillRect(0, 0, w, h);
+  const cx = w / 2;
+  const skin = hex(look.skin);
+  const shirt = hex(look.shirt);
+  const pants = hex(look.pants);
+  const hair = hex(look.hairColor);
+  g.fillStyle = pants;
+  g.fillRect(cx - 22, 118, 18, 48);
+  g.fillRect(cx + 4, 118, 18, 48);
+  g.fillStyle = "#1a1c20";
+  g.fillRect(cx - 24, 158, 20, 10);
+  g.fillRect(cx + 4, 158, 20, 10);
+  g.fillStyle = shirt;
+  g.beginPath();
+  g.ellipse(cx, 92, 28, 32, 0, 0, Math.PI * 2);
+  g.fill();
+  if (look.vest) {
+    g.fillStyle = "#2c3238";
+    g.fillRect(cx - 20, 78, 40, 36);
+  }
+  g.fillStyle = shirt;
+  g.fillRect(cx - 40, 78, 14, 36);
+  g.fillRect(cx + 26, 78, 14, 36);
+  g.fillStyle = skin;
+  g.fillRect(cx - 40, 110, 12, 22);
+  g.fillRect(cx + 28, 110, 12, 22);
+  g.beginPath();
+  g.arc(cx, 52, 22, 0, Math.PI * 2);
+  g.fill();
+  g.fillStyle = "#f4f0ea";
+  g.beginPath();
+  g.ellipse(cx - 7, 52, 4, 3, 0, 0, Math.PI * 2);
+  g.ellipse(cx + 7, 52, 4, 3, 0, 0, Math.PI * 2);
+  g.fill();
+  g.fillStyle = hex(look.iris);
+  g.beginPath();
+  g.arc(cx - 7, 52, 2, 0, Math.PI * 2);
+  g.arc(cx + 7, 52, 2, 0, Math.PI * 2);
+  g.fill();
+  if (look.hair !== "bald") {
+    g.fillStyle = hair;
+    g.beginPath();
+    g.arc(cx, 42, 20, Math.PI, 0);
+    g.fill();
+    if (look.hair === "long" || look.hair === "pony") {
+      g.fillRect(cx - 16, 48, 10, 28);
+      g.fillRect(cx + 6, 48, 10, 28);
+    }
+    if (look.hair === "mohawk") g.fillRect(cx - 4, 22, 8, 18);
+  }
+  if (look.beard !== "none") {
+    g.fillStyle = hair;
+    g.globalAlpha = look.beard === "full" ? 0.7 : 0.28;
+    g.beginPath();
+    g.ellipse(cx, 66, look.beard === "full" ? 16 : 12, look.beard === "full" ? 10 : 6, 0, 0, Math.PI * 2);
+    g.fill();
+    g.globalAlpha = 1;
+  }
+  if (look.helmet === "cap") {
+    g.fillStyle = "#16181c";
+    g.fillRect(cx - 18, 32, 36, 10);
+    g.fillRect(cx - 8, 36, 28, 6);
+  } else if (look.helmet === "tactical") {
+    g.fillStyle = "#16181c";
+    g.beginPath();
+    g.arc(cx, 48, 24, Math.PI, 0);
+    g.fill();
+  }
 }
 
 class Game {
@@ -1303,6 +1651,9 @@ class Game {
     this.touchAim = false;
     this.inSettings = false;
     this.xhair = this._loadXhair();
+    this.look = this._loadLook();
+    this.mannequin = null;
+    this._netLookN = 0;
     this.time = 0;
     this.effects = [];
     this.shots = [];
@@ -1334,6 +1685,7 @@ class Game {
     this.tracerGeo = new THREE.CylinderGeometry(0.012, 0.012, 1, 5);
 
     this.viewmodel = this._makeViewmodel();
+    this._rebuildViewArms();
     this.viewmodel.visible = false;
     this.camera.add(this.viewmodel);
     this.scene.add(this.camera);
@@ -1355,6 +1707,8 @@ class Game {
     this._bind();
     this._bindSettings();
     this._applyXhair();
+    this._syncLookUI();
+    this._refreshMannequin();
     this._loop = this._loop.bind(this);
     this.last = performance.now();
     requestAnimationFrame(this._loop);
@@ -1447,6 +1801,12 @@ class Game {
       e.preventDefault();
       this._closeSettings();
     });
+    if ($("btn-customize")) {
+      $("btn-customize").addEventListener("click", (e) => {
+        e.preventDefault();
+        this._openSettings();
+      });
+    }
     $("btn-next-round").addEventListener("click", (e) => {
       e.preventDefault();
       this._nextRound();
@@ -1692,6 +2052,129 @@ class Game {
     } catch (_) {}
   }
 
+  _loadLook() {
+    try {
+      const raw = localStorage.getItem("nexus-look");
+      if (!raw) return sanitizeLook(LOOK_DEFAULT);
+      return sanitizeLook(JSON.parse(raw));
+    } catch (_) {
+      return sanitizeLook(LOOK_DEFAULT);
+    }
+  }
+
+  _saveLook() {
+    try {
+      localStorage.setItem("nexus-look", JSON.stringify(sanitizeLook(this.look)));
+    } catch (_) {}
+  }
+
+  _commitLook() {
+    this.look = sanitizeLook(this.look);
+    this._saveLook();
+    this._syncLookUI();
+    this._rebuildViewArms();
+    this._refreshMannequin();
+    if (this.player) this.player.look = this.look;
+    if (this.online && this.net && this.net.connected) this.net.send({ t: "look", look: this.look });
+  }
+
+  _rebuildViewArms() {
+    if (!this.viewmodel) return;
+    if (this.viewArms) this.viewmodel.remove(this.viewArms);
+    this.viewArms = createViewArms(this.look);
+    this.viewmodel.add(this.viewArms);
+    if (this.gunRoot) this.viewmodel.add(this.gunRoot);
+    if (this.muzzleFlash) this.viewmodel.add(this.muzzleFlash);
+  }
+
+  _charOpts(ent) {
+    return { teamColor: this._isTeamMode() && ent && ent.team >= 0 ? TEAMS[ent.team].color : null };
+  }
+
+  _makeRig(ent) {
+    const look = sanitizeLook(ent.look || this.look);
+    ent.look = look;
+    ent.lookKey = lookKey(look);
+    return createCharacter(look, ent.name, this._charOpts(ent));
+  }
+
+  _rebuildRig(ent) {
+    if (!ent || ent.isPlayer) return;
+    const pos = ent.rig ? ent.rig.group.position.clone() : ent.pos.clone();
+    const rotY = ent.rig ? ent.rig.group.rotation.y : ent.yaw;
+    if (ent.rig) this.scene.remove(ent.rig.group);
+    ent.rig = this._makeRig(ent);
+    ent.rig.group.position.copy(pos);
+    ent.rig.group.rotation.y = rotY;
+    this.scene.add(ent.rig.group);
+  }
+
+  _setLook(ent, look) {
+    if (!ent) return;
+    const l = sanitizeLook(look);
+    const k = lookKey(l);
+    if (ent.lookKey === k && ent.rig) {
+      ent.look = l;
+      return;
+    }
+    ent.look = l;
+    ent.lookKey = k;
+    if (ent.rig) this._rebuildRig(ent);
+  }
+
+  _refreshMannequin() {
+    if (this.mannequin) {
+      this.scene.remove(this.mannequin.group);
+      this.mannequin = null;
+    }
+    if (this.running || !this.scene) return;
+    const name = this._playerName ? this._playerName() : "YOU";
+    const rig = createCharacter(this.look, name, {});
+    if (rig.hpGroup) rig.hpGroup.visible = false;
+    if (rig.tag) rig.tag.visible = false;
+    rig.group.position.set(0, 0, 0);
+    this.scene.add(rig.group);
+    this.mannequin = rig;
+  }
+
+  _fillLookRow(id, colors, key) {
+    const row = $(id);
+    if (!row) return;
+    row.innerHTML = colors
+      .map(
+        (c) =>
+          `<button type="button" class="xh-swatch" data-look-key="${key}" data-look-num="${c}" style="background:${hex(c)}"></button>`
+      )
+      .join("");
+    row.addEventListener("click", (e) => {
+      const btn = e.target.closest("[data-look-num]");
+      if (!btn) return;
+      this.look[key] = Number(btn.dataset.lookNum) >>> 0;
+      this._commitLook();
+    });
+  }
+
+  _syncLookUI() {
+    const l = sanitizeLook(this.look);
+    this.look = l;
+    const mark = (sel, on) => {
+      const root = $(sel);
+      if (!root) return;
+      for (const btn of root.querySelectorAll("button")) btn.classList.toggle("on", on(btn));
+    };
+    mark("look-skin-row", (b) => (Number(b.dataset.lookNum) >>> 0) === l.skin);
+    mark("look-hairc-row", (b) => (Number(b.dataset.lookNum) >>> 0) === l.hairColor);
+    mark("look-shirt-row", (b) => (Number(b.dataset.lookNum) >>> 0) === l.shirt);
+    mark("look-pants-row", (b) => (Number(b.dataset.lookNum) >>> 0) === l.pants);
+    mark("look-hair-row", (b) => b.dataset.lookHair === l.hair);
+    mark("look-gear-row", (b) => {
+      if (b.id === "look-vest-btn") return !!l.vest;
+      return b.dataset.lookHelm === l.helmet;
+    });
+    mark("look-beard-row", (b) => b.dataset.lookBeard === l.beard);
+    drawLookPreview($("look-preview"), l);
+  }
+
   _applyXhair() {
     const x = this.xhair || XHAIR_DEFAULT;
     for (const id of ["crosshair", "xh-preview"]) {
@@ -1794,6 +2277,45 @@ class Game {
         this._syncXhairUI();
       });
     }
+    this._fillLookRow("look-skin-row", SKINS, "skin");
+    this._fillLookRow("look-hairc-row", HAIR_COLORS, "hairColor");
+    this._fillLookRow("look-shirt-row", SHIRTS, "shirt");
+    this._fillLookRow("look-pants-row", PANTS, "pants");
+    if ($("look-hair-row")) {
+      $("look-hair-row").addEventListener("click", (e) => {
+        const btn = e.target.closest("[data-look-hair]");
+        if (!btn) return;
+        this.look.hair = btn.dataset.lookHair;
+        this._commitLook();
+      });
+    }
+    if ($("look-gear-row")) {
+      $("look-gear-row").addEventListener("click", (e) => {
+        if (e.target.closest("#look-vest-btn")) {
+          this.look.vest = !this.look.vest;
+          this._commitLook();
+          return;
+        }
+        const btn = e.target.closest("[data-look-helm]");
+        if (!btn) return;
+        this.look.helmet = btn.dataset.lookHelm;
+        this._commitLook();
+      });
+    }
+    if ($("look-beard-row")) {
+      $("look-beard-row").addEventListener("click", (e) => {
+        const btn = e.target.closest("[data-look-beard]");
+        if (!btn) return;
+        this.look.beard = btn.dataset.lookBeard;
+        this._commitLook();
+      });
+    }
+    if ($("look-random-btn")) {
+      $("look-random-btn").addEventListener("click", () => {
+        this.look = randomLook();
+        this._commitLook();
+      });
+    }
   }
 
   _toggleSettings() {
@@ -1811,6 +2333,7 @@ class Game {
     }
     $("settings").classList.remove("hidden");
     this._syncXhairUI();
+    this._syncLookUI();
     this._syncLookHint();
   }
 
@@ -1855,6 +2378,7 @@ class Game {
       this.flags = [];
     }
     if ($("map-name-hud")) $("map-name-hud").textContent = MAPS[mapId].name;
+    this._refreshMannequin();
   }
 
   _setGame(id) {
@@ -2117,7 +2641,7 @@ class Game {
 
   _createRoom() {
     $("net-status").textContent = "Creating room…";
-    this.net.create(this._playerName(), parseInt($("bots").value, 10), this.mapId, this.diffId, this.modeId);
+    this.net.create(this._playerName(), parseInt($("bots").value, 10), this.mapId, this.diffId, this.modeId, this.look);
   }
 
   _joinRoom() {
@@ -2127,7 +2651,7 @@ class Game {
       return;
     }
     $("net-status").textContent = "Joining " + code.toUpperCase() + "…";
-    this.net.join(code, this._playerName());
+    this.net.join(code, this._playerName(), this.look);
   }
 
   _onNet(msg) {
@@ -2154,9 +2678,13 @@ class Game {
       $("net-status").textContent = "Disconnected from the room.";
     }
     if (!this.running) return;
-    if (msg.t === "join") this._addRemote(msg.id, msg.name, msg.color, false);
+    if (msg.t === "join") this._addRemote(msg.id, msg.name, msg.color, false, msg.look);
     if (msg.t === "leave") this._removeRemote(msg.id);
     if (msg.t === "host") this.net.host = !!msg.host;
+    if (msg.t === "look") {
+      const f = this._byId(msg.id) || this._addRemote(msg.id, msg.name, msg.color, false, msg.look);
+      if (f) this._setLook(f, msg.look);
+    }
     if (msg.t === "st") this._applyPeerState(msg);
     if (msg.t === "bst" && !this.net.host) this._applyBotStates(msg.bots || []);
     if (msg.t === "shot") this._netShot(msg);
@@ -2175,7 +2703,7 @@ class Game {
     this.fighters = [this.player, ...this.humans, ...this.bots].filter(Boolean);
   }
 
-  _addRemote(id, name, color, isBot) {
+  _addRemote(id, name, color, isBot, look) {
     if (!id || (this.player && id === this.player.id) || this._byId(id)) return null;
     const f = this._makeFighter(name || "PLAYER", color || 0x8892a0, false);
     f.id = id;
@@ -2184,7 +2712,9 @@ class Game {
     f.isRemote = true;
     f.isBot = !!isBot;
     f.arch = isBot ? ARCHETYPES[id % ARCHETYPES.length] : { id: "human" };
-    const rig = createOperator(f.color, f.name);
+    f.look = look ? sanitizeLook(look) : randomLook(f.color);
+    f.lookKey = lookKey(f.look);
+    const rig = this._makeRig(f);
     this.scene.add(rig.group);
     f.rig = rig;
     if (isBot) this.bots.push(f);
@@ -2206,7 +2736,7 @@ class Game {
   _applyPeerState(msg) {
     if (!msg || msg.id === this.player?.id) return;
     let f = this._byId(msg.id);
-    if (!f) f = this._addRemote(msg.id, msg.name, msg.color, false);
+    if (!f) f = this._addRemote(msg.id, msg.name, msg.color, false, msg.look);
     if (!f) return;
     this._setNetPose(f, msg.x, msg.y, msg.z, msg.yaw, msg.pitch);
     f.health = msg.hp;
@@ -2215,6 +2745,7 @@ class Game {
     if (msg.k != null) f.kills = msg.k;
     if (msg.d != null) f.deaths = msg.d;
     if (msg.team != null) f.team = msg.team;
+    if (msg.look) this._setLook(f, msg.look);
   }
 
   _applyBotStates(list) {
@@ -2222,7 +2753,7 @@ class Game {
     for (const b of list) {
       seen.add(b.id);
       let f = this._byId(b.id);
-      if (!f) f = this._addRemote(b.id, b.name, b.color, true);
+      if (!f) f = this._addRemote(b.id, b.name, b.color, true, b.look);
       if (!f) continue;
       this._setNetPose(f, b.x, b.y, b.z, b.yaw, 0);
       f.health = b.hp;
@@ -2230,6 +2761,7 @@ class Game {
       if (b.k != null) f.kills = b.k;
       if (b.d != null) f.deaths = b.d;
       if (b.team != null) f.team = b.team;
+      if (b.look) this._setLook(f, b.look);
     }
     for (const bot of [...this.bots]) {
       if (bot.isRemote && !seen.has(bot.id)) this._removeRemote(bot.id);
@@ -2313,9 +2845,11 @@ class Game {
     this._netAcc += dt;
     if (this._netAcc < 1 / CFG.netHz) return;
     this._netAcc = 0;
+    this._netLookN = (this._netLookN || 0) + 1;
+    const pulseLook = this._netLookN % 20 === 1;
     const p = this.player;
     const q = (n) => Math.round(n * 100) / 100;
-    this.net.send({
+    const st = {
       t: "st",
       x: q(p.pos.x),
       y: q(p.pos.y),
@@ -2328,24 +2862,30 @@ class Game {
       k: p.kills,
       d: p.deaths,
       team: p.team,
-    });
+    };
+    if (pulseLook) st.look = sanitizeLook(this.look);
+    this.net.send(st);
     if (this.net.host && this.bots.length) {
       this.net.send({
         t: "bst",
-        bots: this.bots.filter((b) => !b.isRemote).map((b) => ({
-          id: b.id,
-          name: b.name,
-          color: b.color,
-          x: q(b.pos.x),
-          y: q(b.pos.y),
-          z: q(b.pos.z),
-          yaw: q(b.yaw),
-          hp: Math.round(b.health),
-          alive: b.alive ? 1 : 0,
-          k: b.kills,
-          d: b.deaths,
-          team: b.team,
-        })),
+        bots: this.bots.filter((b) => !b.isRemote).map((b) => {
+          const row = {
+            id: b.id,
+            name: b.name,
+            color: b.color,
+            x: q(b.pos.x),
+            y: q(b.pos.y),
+            z: q(b.pos.z),
+            yaw: q(b.yaw),
+            hp: Math.round(b.health),
+            alive: b.alive ? 1 : 0,
+            k: b.kills,
+            d: b.deaths,
+            team: b.team,
+          };
+          if (pulseLook && b.look) row.look = b.look;
+          return row;
+        }),
       });
     }
     if (this.net.host && this._isTeamMode()) this.net.send(this._objPayload());
@@ -2393,6 +2933,7 @@ class Game {
       this.camera.fov = 78;
       this.camera.updateProjectionMatrix();
       this.pointerLocked = false;
+      this._refreshMannequin();
 
       for (const b of this.bots) if (b.rig) this.scene.remove(b.rig.group);
       for (const h of this.humans) if (h.rig) this.scene.remove(h.rig.group);
@@ -2403,8 +2944,11 @@ class Game {
 
       const myName = this._playerName();
       this.player = this._makeFighter(myName, 0x5ce1ff, true);
+      this.player.look = sanitizeLook(this.look);
+      this.player.lookKey = lookKey(this.player.look);
       if (opts.netId) this.player.id = opts.netId;
       this._assignTeam(this.player, this.player.id - 1);
+      this._rebuildViewArms();
 
       const simulateBots = !this.online || this.net.host;
       if (simulateBots) {
@@ -2420,7 +2964,9 @@ class Game {
           bot.maxHealth = this.difficulty.hp;
           bot.react = bot.arch.react * this.difficulty.react;
           bot.strafeDir = Math.random() < 0.5 ? 1 : -1;
-          const rig = createOperator(col, op.name);
+          bot.look = randomLook(this._isTeamMode() ? null : op.color);
+          bot.lookKey = lookKey(bot.look);
+          const rig = this._makeRig(bot);
           this.scene.add(rig.group);
           bot.rig = rig;
           this.bots.push(bot);
@@ -2430,13 +2976,14 @@ class Game {
       if (this.online && opts.players) {
         for (const p of opts.players) {
           if (p.id === this.player.id) continue;
-          this._addRemote(p.id, p.name, p.color, false);
+          this._addRemote(p.id, p.name, p.color, false, p.look);
         }
       }
 
       this._rebuildFighters();
       this._setupObjectives();
       this._equipWeapon("rifle", true);
+      if (this.online && this.net.connected) this.net.send({ t: "look", look: sanitizeLook(this.look) });
       if ($("round-num")) $("round-num").textContent = "1";
       if ($("credits-hud")) $("credits-hud").textContent = String(this.credits);
       const used = new Set();
@@ -2503,6 +3050,8 @@ class Game {
       recoil: 0,
       bloom: 0,
       walkPhase: Math.random() * 10,
+      look: null,
+      lookKey: "",
       lastHurtBy: null,
       lastHurtAt: -99,
       respawnT: 0,

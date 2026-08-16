@@ -67,16 +67,16 @@ export class Net {
     if (this.ws && this.ws.readyState === 1) this.ws.send(JSON.stringify(obj));
   }
 
-  create(name, bots, map, diff, mode) {
+  create(name, bots, map, diff, mode, look) {
     this.connect();
-    const go = () => this.send({ t: "create", name, bots, map, diff, mode });
+    const go = () => this.send({ t: "create", name, bots, map, diff, mode, look });
     if (this.ws && this.ws.readyState === 1) go();
     else this.ws.addEventListener("open", go, { once: true });
   }
 
-  join(code, name) {
+  join(code, name, look) {
     this.connect();
-    const go = () => this.send({ t: "join", code, name });
+    const go = () => this.send({ t: "join", code, name, look });
     if (this.ws && this.ws.readyState === 1) go();
     else this.ws.addEventListener("open", go, { once: true });
   }
