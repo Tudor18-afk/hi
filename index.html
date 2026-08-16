@@ -33,6 +33,7 @@
       <div id="top-center">
         <div class="frag-limit">FRAG LIMIT <b id="frag-limit">20</b></div>
         <div id="lead-chip">LEAD · <span id="lead-name">—</span> <span id="lead-score">0</span></div>
+        <div id="match-meta"><span id="map-name-hud">WAREHOUSE</span> · <span id="diff-name-hud">NORMAL</span></div>
       </div>
 
       <canvas id="minimap" width="176" height="176"></canvas>
@@ -128,6 +129,23 @@
             <input id="bots" type="range" min="0" max="8" step="1" value="8" />
             <b id="bots-val">8</b>
           </label>
+        </div>
+        <div class="pick-block">
+          <div class="pick-label">DIFFICULTY</div>
+          <div class="mode-row wrap" id="diff-row">
+            <button type="button" class="mode" data-diff="easy">EASY</button>
+            <button type="button" class="mode on" data-diff="normal">NORMAL</button>
+            <button type="button" class="mode" data-diff="hard">HARD</button>
+            <button type="button" class="mode" data-diff="insane">INSANE</button>
+          </div>
+        </div>
+        <div class="pick-block">
+          <div class="pick-label">MAP</div>
+          <div class="mode-row wrap" id="map-row">
+            <button type="button" class="mode on" data-map="warehouse">WAREHOUSE</button>
+            <button type="button" class="mode" data-map="yard">CARGO YARD</button>
+            <button type="button" class="mode" data-map="labs">NIGHT LAB</button>
+          </div>
         </div>
         <div id="local-actions">
           <button id="btn-start" type="button">PLAY</button>

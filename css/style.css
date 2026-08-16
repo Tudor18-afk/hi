@@ -163,6 +163,13 @@ canvas#view {
   letter-spacing: 0.14em;
   color: var(--amber);
 }
+#match-meta {
+  margin-top: 4px;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  color: var(--muted);
+}
 
 #minimap {
   position: absolute;
@@ -434,6 +441,7 @@ button {
 button:hover { background: rgba(92, 225, 255, 0.22); }
 
 #menu {
+  overflow-y: auto;
   background:
     radial-gradient(ellipse at 50% 20%, rgba(40, 90, 120, 0.35), transparent 55%),
     #07090d;
@@ -461,8 +469,21 @@ button:hover { background: rgba(92, 225, 255, 0.22); }
   color: var(--cyan);
   margin-bottom: 16px;
 }
+.mode-row.wrap {
+  flex-wrap: wrap;
+}
+.pick-block {
+  margin-top: 18px;
+}
+.pick-label {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.28em;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
 #menu h1 {
-  font-size: clamp(42px, 8vw, 84px);
+  font-size: clamp(36px, 7vw, 72px);
   font-weight: 800;
   letter-spacing: 0.08em;
   line-height: 0.9;

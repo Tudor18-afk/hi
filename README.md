@@ -14,11 +14,13 @@ Then open [http://localhost:8765](http://localhost:8765).
 ### Local
 1. Leave **LOCAL** selected.
 2. Set **AI BOTS** to `0` for an empty arena, or 1–8 for bot opponents.
-3. Click **PLAY**.
+3. Pick a **DIFFICULTY** (Easy / Normal / Hard / Insane) — this changes bot aim, speed, and health.
+4. Pick a **MAP**: Warehouse, Cargo Yard, or Night Lab. The menu camera shows the map you select.
+5. Click **PLAY**.
 
 ### Online
 1. Click **ONLINE**.
-2. Set bots (the room host’s value is used; `0` means humans only).
+2. Set bots (the room host’s value is used; `0` means humans only). Host also picks the map and difficulty.
 3. **CREATE ROOM** and share the 4-letter code.
 4. Friends open the **same site**, click **ONLINE**, type the code, and **JOIN**.
 

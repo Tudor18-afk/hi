@@ -38,6 +38,19 @@ const ARCHETYPES = [
   { id: "lurker", speed: 0.92, acc: 1.12, range: 16, agr: 0.28, react: 0.3, fov: 2.0 },
 ];
 
+const DIFFICULTY = {
+  easy: { id: "easy", name: "EASY", acc: 0.55, react: 1.75, speed: 0.82, hp: 70, dmg: 0.72, spread: 1.85 },
+  normal: { id: "normal", name: "NORMAL", acc: 1, react: 1, speed: 1, hp: 100, dmg: 1, spread: 1 },
+  hard: { id: "hard", name: "HARD", acc: 1.35, react: 0.52, speed: 1.12, hp: 130, dmg: 1.22, spread: 0.62 },
+  insane: { id: "insane", name: "INSANE", acc: 1.75, react: 0.25, speed: 1.25, hp: 160, dmg: 1.45, spread: 0.38 },
+};
+
+const MAPS = {
+  warehouse: { id: "warehouse", name: "WAREHOUSE" },
+  yard: { id: "yard", name: "CARGO YARD" },
+  labs: { id: "labs", name: "NIGHT LAB" },
+};
+
 const $ = (id) => document.getElementById(id);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -341,21 +354,66 @@ function makeBoxMesh(cx, cy, cz, w, h, d, mat, scene, shadows = true) {
   return mesh;
 }
 
-function buildWorld(scene) {
+function buildWorld(scene, mapId) {
   const colliders = [];
   const cover = [];
   const spawns = [];
+  const root = new THREE.Group();
+  scene.add(root);
+
   const S = CFG.world / 2;
   const H = 5.4;
+  const themes = {
+    warehouse: {
+      fog: 0x0a1018,
+      floor: 0xc8d4e0,
+      hemi: [0x9eb6c8, 0x1a1410, 0.55],
+      sun: 0xd8e6ff,
+      lamps: [
+        [-20, -20, 0x88ddff],
+        [20, -20, 0xffb347],
+        [-20, 20, 0xffb347],
+        [20, 20, 0x88ddff],
+        [0, 0, 0x5ce1ff],
+      ],
+    },
+    yard: {
+      fog: 0x10160c,
+      floor: 0xb7c4a8,
+      hemi: [0xc8d4b0, 0x1a1810, 0.62],
+      sun: 0xffe0b0,
+      lamps: [
+        [-22, -18, 0xffb347],
+        [22, -18, 0xffb347],
+        [-22, 18, 0x88ddff],
+        [22, 18, 0x88ddff],
+        [0, 0, 0xffcc66],
+      ],
+    },
+    labs: {
+      fog: 0x0c0816,
+      floor: 0xb8c0e0,
+      hemi: [0xb0a8d8, 0x120814, 0.48],
+      sun: 0xc8b8ff,
+      lamps: [
+        [-12, -12, 0xaa66ff],
+        [12, -12, 0x5ce1ff],
+        [-12, 12, 0x5ce1ff],
+        [12, 12, 0xaa66ff],
+        [0, 0, 0xff66aa],
+      ],
+    },
+  };
+  const theme = themes[mapId] || themes.warehouse;
 
   const ftex = floorTex();
   const floor = new THREE.Mesh(
     new THREE.PlaneGeometry(CFG.world + 4, CFG.world + 4),
-    new THREE.MeshStandardMaterial({ map: ftex, roughness: 0.92, metalness: 0.05 })
+    new THREE.MeshStandardMaterial({ map: ftex, roughness: 0.92, metalness: 0.05, color: theme.floor })
   );
   floor.rotation.x = -Math.PI / 2;
   floor.receiveShadow = true;
-  scene.add(floor);
+  root.add(floor);
 
   const ceil = new THREE.Mesh(
     new THREE.PlaneGeometry(CFG.world + 4, CFG.world + 4),
@@ -363,14 +421,14 @@ function buildWorld(scene) {
   );
   ceil.rotation.x = Math.PI / 2;
   ceil.position.y = 8.6;
-  scene.add(ceil);
+  root.add(ceil);
 
   const wtex = wallTex();
   const wallMat = new THREE.MeshStandardMaterial({
     map: wtex,
     roughness: 0.82,
     metalness: 0.12,
-    color: 0xc8d4e0,
+    color: theme.floor,
   });
   const trimMat = new THREE.MeshStandardMaterial({
     color: 0x5ce1ff,
@@ -387,6 +445,7 @@ function buildWorld(scene) {
   const ctex = crateTex();
   const crateMat = new THREE.MeshStandardMaterial({ map: ctex, roughness: 0.7, metalness: 0.05 });
   const metalMat = new THREE.MeshStandardMaterial({ color: 0x2a3544, roughness: 0.45, metalness: 0.35 });
+  const mats = { wall: wallMat, crate: crateMat, metal: metalMat };
 
   const walls = [
     [0, H / 2, -S - 0.8, CFG.world + 3.2, H, 1.6],
@@ -396,7 +455,8 @@ function buildWorld(scene) {
   ];
   for (const [x, y, z, w, h, d] of walls) {
     addCollider(colliders, x, y, z, w, h, d);
-    makeBoxMesh(x, y, z, w, h, d, wallMat, scene);
+    const mesh = makeBoxMesh(x, y, z, w, h, d, wallMat, root);
+    root.add(mesh);
   }
 
   const neon = [
@@ -405,11 +465,11 @@ function buildWorld(scene) {
     [-S + 0.15, 0.06, 0, 0.12, 0.08, CFG.world - 1, amberMat],
     [S - 0.15, 0.06, 0, 0.12, 0.08, CFG.world - 1, amberMat],
   ];
-  for (const [x, y, z, w, h, d, m] of neon) makeBoxMesh(x, y, z, w, h, d, m, scene, false);
+  for (const [x, y, z, w, h, d, m] of neon) root.add(makeBoxMesh(x, y, z, w, h, d, m, root, false));
 
   function prop(x, z, w, d, h, mat, isCover) {
     addCollider(colliders, x, h / 2, z, w, h, d);
-    makeBoxMesh(x, h / 2, z, w, h, d, mat, scene);
+    root.add(makeBoxMesh(x, h / 2, z, w, h, d, mat, root));
     if (isCover) {
       cover.push(new THREE.Vector3(x + w / 2 + 1.0, 0, z));
       cover.push(new THREE.Vector3(x - w / 2 - 1.0, 0, z));
@@ -418,36 +478,66 @@ function buildWorld(scene) {
     }
   }
 
-  prop(0, 0, 2.2, 2.2, 6.5, metalMat, false);
-  makeBoxMesh(0, 3.4, 0, 0.5, 6.6, 0.5, trimMat, scene, false);
-
-  prop(-15, -15, 3.4, 3.4, 3.4, wallMat, true);
-  prop(15, -15, 3.4, 3.4, 3.4, wallMat, true);
-  prop(-15, 15, 3.4, 3.4, 3.4, wallMat, true);
-  prop(15, 15, 3.4, 3.4, 3.4, wallMat, true);
-
-  prop(0, -19, 9, 2.0, 2.6, wallMat, true);
-  prop(0, 19, 9, 2.0, 2.6, wallMat, true);
-  prop(-19, 0, 2.0, 9, 2.6, wallMat, true);
-  prop(19, 0, 2.0, 9, 2.6, wallMat, true);
-
-  const crates = [
-    [-8, -5.2, 1.6, 1.6, 1.2],
-    [-8, -3.4, 1.6, 1.6, 1.2],
-    [7.4, 5.2, 1.7, 1.7, 2.2],
-    [9.2, 5.2, 1.6, 1.6, 1.1],
-    [-22, 10, 2.1, 2.1, 1.35],
-    [22, -10, 2.1, 2.1, 1.35],
-    [-6, 12, 1.5, 1.5, 1.15],
-    [6, -12, 1.5, 1.5, 1.15],
-    [-24, -22, 2.4, 2.4, 2.0],
-    [24, 22, 2.4, 2.4, 2.0],
-    [-4, 0, 1.4, 1.4, 1.1],
-    [4.2, -2, 1.4, 1.4, 1.8],
-    [-11, 6, 1.5, 1.5, 1.2],
-    [11, -7, 1.5, 1.5, 1.2],
-  ];
-  for (const [x, z, w, d, h] of crates) prop(x, z, w, d, h, crateMat, true);
+  if (mapId === "yard") {
+    prop(-18, -12, 16, 3.4, 2.8, metalMat, true);
+    prop(18, 12, 16, 3.4, 2.8, metalMat, true);
+    prop(-12, 18, 3.4, 14, 2.8, metalMat, true);
+    prop(12, -18, 3.4, 14, 2.8, metalMat, true);
+    prop(0, 0, 3.6, 3.6, 1.4, crateMat, true);
+    prop(-8, 4, 2.2, 2.2, 2.2, crateMat, true);
+    prop(8, -5, 2.2, 2.2, 1.2, crateMat, true);
+    prop(-24, 8, 2.4, 2.4, 1.5, crateMat, true);
+    prop(24, -8, 2.4, 2.4, 1.5, crateMat, true);
+    prop(0, 22, 8, 2.0, 1.8, wallMat, true);
+    prop(0, -22, 8, 2.0, 1.8, wallMat, true);
+  } else if (mapId === "labs") {
+    prop(-20, -8, 12, 1.5, 4.2, wallMat, true);
+    prop(8, -8, 16, 1.5, 4.2, wallMat, true);
+    prop(-8, 8, 16, 1.5, 4.2, wallMat, true);
+    prop(20, 8, 12, 1.5, 4.2, wallMat, true);
+    prop(-8, -20, 1.5, 12, 4.2, wallMat, true);
+    prop(-8, 8, 1.5, 16, 4.2, wallMat, true);
+    prop(8, -8, 1.5, 16, 4.2, wallMat, true);
+    prop(8, 20, 1.5, 12, 4.2, wallMat, true);
+    prop(-20, -20, 6, 6, 3.2, metalMat, true);
+    prop(20, -20, 6, 6, 3.2, metalMat, true);
+    prop(-20, 20, 6, 6, 3.2, metalMat, true);
+    prop(20, 20, 6, 6, 3.2, metalMat, true);
+    prop(0, 0, 2.0, 2.0, 3.8, metalMat, false);
+    root.add(makeBoxMesh(0, 2.2, 0, 0.4, 4.2, 0.4, trimMat, root, false));
+    prop(-14, 0, 1.6, 1.6, 1.2, crateMat, true);
+    prop(14, 0, 1.6, 1.6, 1.2, crateMat, true);
+    prop(0, -14, 1.6, 1.6, 1.2, crateMat, true);
+    prop(0, 14, 1.6, 1.6, 1.2, crateMat, true);
+  } else {
+    prop(0, 0, 2.2, 2.2, 6.5, metalMat, false);
+    root.add(makeBoxMesh(0, 3.4, 0, 0.5, 6.6, 0.5, trimMat, root, false));
+    prop(-15, -15, 3.4, 3.4, 3.4, wallMat, true);
+    prop(15, -15, 3.4, 3.4, 3.4, wallMat, true);
+    prop(-15, 15, 3.4, 3.4, 3.4, wallMat, true);
+    prop(15, 15, 3.4, 3.4, 3.4, wallMat, true);
+    prop(0, -19, 9, 2.0, 2.6, wallMat, true);
+    prop(0, 19, 9, 2.0, 2.6, wallMat, true);
+    prop(-19, 0, 2.0, 9, 2.6, wallMat, true);
+    prop(19, 0, 2.0, 9, 2.6, wallMat, true);
+    const crates = [
+      [-8, -5.2, 1.6, 1.6, 1.2],
+      [-8, -3.4, 1.6, 1.6, 1.2],
+      [7.4, 5.2, 1.7, 1.7, 2.2],
+      [9.2, 5.2, 1.6, 1.6, 1.1],
+      [-22, 10, 2.1, 2.1, 1.35],
+      [22, -10, 2.1, 2.1, 1.35],
+      [-6, 12, 1.5, 1.5, 1.15],
+      [6, -12, 1.5, 1.5, 1.15],
+      [-24, -22, 2.4, 2.4, 2.0],
+      [24, 22, 2.4, 2.4, 2.0],
+      [-4, 0, 1.4, 1.4, 1.1],
+      [4.2, -2, 1.4, 1.4, 1.8],
+      [-11, 6, 1.5, 1.5, 1.2],
+      [11, -7, 1.5, 1.5, 1.2],
+    ];
+    for (const [x, z, w, d, h] of crates) prop(x, z, w, d, h, crateMat, true);
+  }
 
   const spawnPts = [
     [-26, -26],
@@ -463,8 +553,8 @@ function buildWorld(scene) {
   ];
   for (const [x, z] of spawnPts) spawns.push(new THREE.Vector3(x, 0, z));
 
-  scene.add(new THREE.HemisphereLight(0x9eb6c8, 0x1a1410, 0.55));
-  const sun = new THREE.DirectionalLight(0xd8e6ff, 0.7);
+  root.add(new THREE.HemisphereLight(theme.hemi[0], theme.hemi[1], theme.hemi[2]));
+  const sun = new THREE.DirectionalLight(theme.sun, 0.7);
   sun.position.set(18, 28, 12);
   sun.castShadow = true;
   sun.shadow.mapSize.set(1024, 1024);
@@ -474,31 +564,24 @@ function buildWorld(scene) {
   sun.shadow.camera.right = 36;
   sun.shadow.camera.top = 36;
   sun.shadow.camera.bottom = -36;
-  scene.add(sun);
+  root.add(sun);
 
-  const lamps = [
-    [-20, -20, 0x88ddff],
-    [20, -20, 0xffb347],
-    [-20, 20, 0xffb347],
-    [20, 20, 0x88ddff],
-    [0, 0, 0x5ce1ff],
-  ];
-  for (const [x, z, col] of lamps) {
+  for (const [x, z, col] of theme.lamps) {
     const l = new THREE.PointLight(col, 2.4, 28, 1.6);
     l.position.set(x, 6.4, z);
-    scene.add(l);
+    root.add(l);
     const bulb = new THREE.Mesh(
       new THREE.BoxGeometry(0.6, 0.12, 0.6),
       new THREE.MeshStandardMaterial({ color: col, emissive: col, emissiveIntensity: 1.4 })
     );
     bulb.position.set(x, 8.2, z);
-    scene.add(bulb);
+    root.add(bulb);
   }
 
-  scene.background = new THREE.Color(0x0a1018);
-  scene.fog = new THREE.Fog(0x0a1018, 18, 72);
+  scene.background = new THREE.Color(theme.fog);
+  scene.fog = new THREE.Fog(theme.fog, 18, 72);
 
-  return { colliders, cover, spawns };
+  return { colliders, cover, spawns, root };
 }
 
 function createRifle() {
@@ -641,6 +724,9 @@ class Game {
     this.mouseDown = false;
     this.sens = 1.2;
     this.botCount = 8;
+    this.mapId = "warehouse";
+    this.diffId = "normal";
+    this.difficulty = DIFFICULTY.normal;
     this.online = false;
     this.humans = [];
     this.net = new Net();
@@ -667,11 +753,7 @@ class Game {
     this.camera = new THREE.PerspectiveCamera(78, innerWidth / innerHeight, 0.05, 120);
     this.camera.rotation.order = "YXZ";
 
-    const built = buildWorld(this.scene);
-    this.colliders = built.colliders;
-    this.cover = built.cover;
-    this.spawns = built.spawns;
-    this.nav = new NavGrid(CFG.world, 1.5, this.colliders);
+    this._loadMap("warehouse");
 
     this.tracerMat = new THREE.MeshBasicMaterial({ color: 0xffe08a, transparent: true, opacity: 0.85 });
     this.sparkGeo = new THREE.SphereGeometry(0.035, 6, 6);
@@ -742,6 +824,16 @@ class Game {
     $("bots").addEventListener("input", (e) => {
       this.botCount = parseInt(e.target.value, 10);
       $("bots-val").textContent = String(this.botCount);
+    });
+    $("diff-row").addEventListener("click", (e) => {
+      const btn = e.target.closest("[data-diff]");
+      if (!btn) return;
+      this._setDifficulty(btn.dataset.diff);
+    });
+    $("map-row").addEventListener("click", (e) => {
+      const btn = e.target.closest("[data-map]");
+      if (!btn) return;
+      this._setMap(btn.dataset.map);
     });
     $("mode-local").addEventListener("click", () => this._setMode(false));
     $("mode-online").addEventListener("click", () => this._setMode(true));
@@ -947,6 +1039,38 @@ class Game {
     hint.classList.toggle("hidden", !show);
   }
 
+  _loadMap(mapId) {
+    mapId = MAPS[mapId] ? mapId : "warehouse";
+    if (this.worldRoot) this.scene.remove(this.worldRoot);
+    const built = buildWorld(this.scene, mapId);
+    this.worldRoot = built.root;
+    this.colliders = built.colliders;
+    this.cover = built.cover;
+    this.spawns = built.spawns;
+    this.nav = new NavGrid(CFG.world, 1.5, this.colliders);
+    this.mapId = mapId;
+    if ($("map-name-hud")) $("map-name-hud").textContent = MAPS[mapId].name;
+  }
+
+  _setDifficulty(id) {
+    const diff = DIFFICULTY[id] || DIFFICULTY.normal;
+    this.diffId = diff.id;
+    this.difficulty = diff;
+    for (const btn of $("diff-row").querySelectorAll("[data-diff]")) {
+      btn.classList.toggle("on", btn.dataset.diff === diff.id);
+    }
+    if ($("diff-name-hud")) $("diff-name-hud").textContent = diff.name;
+  }
+
+  _setMap(id) {
+    if (this.running) return;
+    const map = MAPS[id] ? id : "warehouse";
+    for (const btn of $("map-row").querySelectorAll("[data-map]")) {
+      btn.classList.toggle("on", btn.dataset.map === map);
+    }
+    this._loadMap(map);
+  }
+
   _playerName() {
     const raw = ($("player-name") && $("player-name").value) || "YOU";
     return raw.trim().toUpperCase().slice(0, 12) || "YOU";
@@ -967,7 +1091,7 @@ class Game {
 
   _createRoom() {
     $("net-status").textContent = "Creating room…";
-    this.net.create(this._playerName(), parseInt($("bots").value, 10));
+    this.net.create(this._playerName(), parseInt($("bots").value, 10), this.mapId, this.diffId);
   }
 
   _joinRoom() {
@@ -988,7 +1112,15 @@ class Game {
     if (msg.t === "ok") {
       $("net-status").textContent = "Room " + msg.code + " — share this code.";
       $("room-code").value = msg.code;
-      this.startMatch({ online: true, netId: msg.id, players: msg.players, bots: msg.bots, host: msg.host });
+      this.startMatch({
+        online: true,
+        netId: msg.id,
+        players: msg.players,
+        bots: msg.bots,
+        host: msg.host,
+        map: msg.map,
+        diff: msg.diff,
+      });
       return;
     }
     if (msg.t === "close" && this.online && this.running) {
@@ -1093,7 +1225,7 @@ class Game {
     f.rig.rarm.rotation.x = -1.05;
     f.rig.lleg.rotation.x = swing;
     f.rig.rleg.rotation.x = -swing;
-    f.rig.hpFg.scale.x = clamp(f.health / 100, 0.02, 1);
+    f.rig.hpFg.scale.x = clamp(f.health / (f.maxHealth || 100), 0.02, 1);
     f.rig.hpFg.position.x = (f.rig.hpFg.scale.x - 1) * 0.39;
     f.rig.hpGroup.lookAt(this.camera.position);
   }
@@ -1169,6 +1301,9 @@ class Game {
       if (opts.online) this.online = true;
       if (opts.host != null) this.net.host = !!opts.host;
       this.botCount = opts.bots != null ? opts.bots : parseInt($("bots").value, 10);
+      if (opts.diff && DIFFICULTY[opts.diff]) this._setDifficulty(opts.diff);
+      const wantMap = opts.map && MAPS[opts.map] ? opts.map : this.mapId;
+      if (!this.worldRoot || wantMap !== this.mapId) this._loadMap(wantMap);
       $("menu").classList.add("hidden");
       $("match-over").classList.add("hidden");
       $("paused").classList.add("hidden");
@@ -1199,6 +1334,9 @@ class Game {
           const bot = this._makeFighter(op.name, op.color, false);
           bot.id = 1000 + i;
           bot.arch = ARCHETYPES[i % ARCHETYPES.length];
+          bot.health = this.difficulty.hp;
+          bot.maxHealth = this.difficulty.hp;
+          bot.react = bot.arch.react * this.difficulty.react;
           bot.strafeDir = Math.random() < 0.5 ? 1 : -1;
           const rig = createOperator(op.color, op.name);
           this.scene.add(rig.group);
@@ -1229,7 +1367,7 @@ class Game {
         this._banner("ROOM " + this.net.code);
       } else {
         $("room-chip").classList.add("hidden");
-        this._banner(this.botCount ? "FIGHT" : "EMPTY ARENA");
+        this._banner((MAPS[this.mapId] ? MAPS[this.mapId].name : "ARENA") + " · " + this.difficulty.name);
       }
       try {
         this.audio.spawn();
@@ -1311,7 +1449,7 @@ class Game {
     ent.spawnIndex = best;
     ent.pos.set(s.x, 0, s.z);
     ent.vel.set(0, 0, 0);
-    ent.health = 100;
+    ent.health = ent.isPlayer || !ent.arch || ent.arch.id === "human" ? 100 : this.difficulty.hp;
     ent.alive = true;
     ent.ammo = CFG.mag;
     ent.reserve = CFG.reserve;
@@ -1429,7 +1567,8 @@ class Game {
       this.net.send({ t: "shot", ox, oy, oz, dx, dy, dz });
     }
     if (hit.ent) {
-      const dmg = CFG.damage * (hit.head ? CFG.headMult : 1) * rand(0.92, 1.05);
+      const dmgBase = CFG.damage * (hit.head ? CFG.headMult : 1) * rand(0.92, 1.05);
+      const dmg = ent.isPlayer ? dmgBase : dmgBase * this.difficulty.dmg;
       if (this.online && hit.ent.isRemote && ent.isPlayer) {
         this._hitmarker(hit.head);
         if (hit.head) this.audio.headshot();
@@ -1868,7 +2007,7 @@ class Game {
     const arch = bot.arch;
     let wishx = 0;
     let wishz = 0;
-    let speed = CFG.botWalk * arch.speed;
+    let speed = CFG.botWalk * arch.speed * this.difficulty.speed;
     const threat = bot.target;
     const seeThreat =
       threat &&
@@ -1928,11 +2067,13 @@ class Game {
         dx /= dl;
         dy /= dl;
         dz /= dl;
-        const spread = (0.028 / arch.acc) * (1 + dist / 50) + (Math.hypot(bot.vel.x, bot.vel.z) > 2 ? 0.02 : 0);
+        const spread =
+          (0.028 / (arch.acc * this.difficulty.acc)) * (1 + dist / 50) * this.difficulty.spread +
+          (Math.hypot(bot.vel.x, bot.vel.z) > 2 ? 0.02 : 0);
         this.fire(bot, ox, oy, oz, dx, dy, dz, spread);
       }
     } else {
-      bot.react = arch.react;
+      bot.react = arch.react * this.difficulty.react;
       let gx = null;
       let gz = null;
       if (bot.lastSeen && this.time - bot.lastSeenAt < 5) {
@@ -1978,7 +2119,7 @@ class Game {
     rig.rleg.rotation.x = -swing;
     rig.group.position.set(bot.pos.x, bot.pos.y, bot.pos.z);
     rig.group.rotation.y = bot.yaw;
-    rig.hpFg.scale.x = clamp(bot.health / 100, 0.02, 1);
+    rig.hpFg.scale.x = clamp(bot.health / (bot.maxHealth || 100), 0.02, 1);
     rig.hpFg.position.x = (rig.hpFg.scale.x - 1) * 0.39;
     rig.hpGroup.lookAt(this.camera.position);
   }
@@ -2058,6 +2199,8 @@ class Game {
     const ranked = [...this.fighters].sort((a, b) => b.kills - a.kills || a.deaths - b.deaths);
     $("lead-name").textContent = ranked[0] ? ranked[0].name : "—";
     $("lead-score").textContent = ranked[0] ? String(ranked[0].kills) : "0";
+    if ($("map-name-hud")) $("map-name-hud").textContent = MAPS[this.mapId] ? MAPS[this.mapId].name : this.mapId;
+    if ($("diff-name-hud")) $("diff-name-hud").textContent = this.difficulty.name;
     const body = $("sb-body");
     body.innerHTML = ranked
       .map(
