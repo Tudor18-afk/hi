@@ -243,6 +243,16 @@
           <button type="button" class="mode on" id="mode-local">LOCAL</button>
           <button type="button" class="mode" id="mode-online">ONLINE</button>
         </div>
+        <div id="online-actions" class="hidden">
+          <div class="online-row">
+            <input id="room-code" type="text" maxlength="4" placeholder="CODE" autocomplete="off" />
+            <button id="btn-join" type="button">JOIN</button>
+          </div>
+          <div id="net-status">Connecting…</div>
+        </div>
+        <div id="local-actions">
+          <button id="btn-start" type="button">PLAY</button>
+        </div>
         <div class="settings">
           <label>
             <span>YOUR NAME</span>
@@ -287,17 +297,6 @@
             <button type="button" class="mode" data-map="yard">PINE RIDGE</button>
             <button type="button" class="mode" data-map="labs">HARBOR QUAY</button>
           </div>
-        </div>
-        <div id="local-actions">
-          <button id="btn-start" type="button">PLAY</button>
-        </div>
-        <div id="online-actions" class="hidden">
-          <div class="online-row">
-            <input id="room-code" type="text" maxlength="4" placeholder="CODE" autocomplete="off" />
-            <button id="btn-join" type="button">JOIN</button>
-          </div>
-          <button id="btn-create" type="button">CREATE ROOM</button>
-          <div id="net-status">Connecting is required for online play. Share the room code with friends on this same site.</div>
         </div>
         <div class="help">
           <div><kbd>WASD</kbd> move <kbd>SHIFT</kbd> sprint <kbd>SPACE</kbd> jump <kbd>C</kbd> crouch</div>

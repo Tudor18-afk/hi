@@ -13,18 +13,30 @@ export class Net {
 
   url() {
     const proto = location.protocol === "https:" ? "wss:" : "ws:";
-    return `${proto}//${location.host}`;
+    const host = location.host || "127.0.0.1:8765";
+    return `${proto}//${host}`;
   }
 
   connect() {
-    if (this.ws && (this.ws.readyState === 0 || this.ws.readyState === 1)) return;
+    if (this.ws && (this.ws.readyState === 0 || this.ws.readyState === 1)) return this.ws;
     this.status = "connecting";
+    this.connected = false;
     try {
+      if (this.ws) {
+        try {
+          this.ws.onopen = null;
+          this.ws.onclose = null;
+          this.ws.onerror = null;
+          this.ws.onmessage = null;
+          this.ws.close();
+        } catch (_) {}
+      }
       this.ws = new WebSocket(this.url());
     } catch (err) {
+      this.ws = null;
       this.status = "offline";
       this._emit({ t: "err", m: "Could not open a network connection." });
-      return;
+      return null;
     }
     this.ws.onopen = () => {
       this.connected = true;
@@ -34,7 +46,7 @@ export class Net {
     this.ws.onclose = () => {
       this.connected = false;
       this.status = "offline";
-      if (!this.id) this._emit({ t: "err", m: "No game server found. Run npm start and open that address to play online." });
+      if (!this.id) this._emit({ t: "err", m: "Could not reach the game server. Hard-refresh this page and try ONLINE again." });
       else this._emit({ t: "close" });
     };
     this.ws.onerror = () => {
@@ -61,6 +73,7 @@ export class Net {
       if (msg.t === "join" || msg.t === "leave") this.players = msg.players || this.players;
       this._emit(msg);
     };
+    return this.ws;
   }
 
   send(obj) {
@@ -68,17 +81,33 @@ export class Net {
   }
 
   create(name, bots, map, diff, mode, look) {
-    this.connect();
-    const go = () => this.send({ t: "create", name, bots, map, diff, mode, look });
-    if (this.ws && this.ws.readyState === 1) go();
-    else this.ws.addEventListener("open", go, { once: true });
+    this._whenOpen(() => this.send({ t: "create", name, bots, map, diff, mode, look }));
   }
 
   join(code, name, look) {
-    this.connect();
-    const go = () => this.send({ t: "join", code, name, look });
-    if (this.ws && this.ws.readyState === 1) go();
-    else this.ws.addEventListener("open", go, { once: true });
+    this._whenOpen(() => this.send({ t: "join", code, name, look }));
+  }
+
+  _whenOpen(fn) {
+    const ws = this.connect();
+    if (!ws) {
+      this._emit({ t: "err", m: "Could not open a network connection." });
+      return;
+    }
+    if (ws.readyState === 1) {
+      fn();
+      return;
+    }
+    const onOpen = () => {
+      ws.removeEventListener("error", onErr);
+      fn();
+    };
+    const onErr = () => {
+      ws.removeEventListener("open", onOpen);
+      this._emit({ t: "err", m: "Online connection failed. Hard-refresh and try again." });
+    };
+    ws.addEventListener("open", onOpen, { once: true });
+    ws.addEventListener("error", onErr, { once: true });
   }
 
   _emit(msg) {

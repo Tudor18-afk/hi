@@ -2145,12 +2145,20 @@ class Game {
       if (!btn) return;
       this._setGame(btn.dataset.game);
     });
-    $("mode-local").addEventListener("click", () => this._setMode(false));
-    $("mode-online").addEventListener("click", () => this._setMode(true));
-    $("btn-create").addEventListener("click", (e) => {
+    $("mode-local").addEventListener("click", (e) => {
       e.preventDefault();
-      this._createRoom();
+      this._setMode(false);
     });
+    $("mode-online").addEventListener("click", (e) => {
+      e.preventDefault();
+      this._setMode(true);
+    });
+    if ($("btn-create")) {
+      $("btn-create").addEventListener("click", (e) => {
+        e.preventDefault();
+        this._createRoom();
+      });
+    }
     $("btn-join").addEventListener("click", (e) => {
       e.preventDefault();
       this._joinRoom();
@@ -2161,7 +2169,8 @@ class Game {
     $("btn-start").addEventListener("click", (e) => {
       e.preventDefault();
       e.stopPropagation();
-      this.startMatch();
+      if (this.online) this._createRoom();
+      else this.startMatch();
     });
     $("btn-again").addEventListener("click", (e) => {
       e.preventDefault();
@@ -3012,14 +3021,14 @@ class Game {
   }
 
   _setMode(online) {
-    this.online = online;
-    $("mode-local").classList.toggle("on", !online);
-    $("mode-online").classList.toggle("on", online);
-    $("local-actions").classList.toggle("hidden", online);
-    $("online-actions").classList.toggle("hidden", !online);
-    $("menu-eyebrow").textContent = online ? "ONLINE DEATHMATCH" : "LOCAL MATCH";
-    if (online) {
-      $("net-status").textContent = "Create a room and share the 4-letter code. Friends must open this same site.";
+    this.online = !!online;
+    if ($("mode-local")) $("mode-local").classList.toggle("on", !this.online);
+    if ($("mode-online")) $("mode-online").classList.toggle("on", this.online);
+    if ($("online-actions")) $("online-actions").classList.toggle("hidden", !this.online);
+    if ($("menu-eyebrow")) $("menu-eyebrow").textContent = this.online ? "ONLINE DEATHMATCH" : "LOCAL MATCH";
+    if ($("btn-start")) $("btn-start").textContent = this.online ? "CREATE ROOM" : "PLAY";
+    if (this.online) {
+      if ($("net-status")) $("net-status").textContent = "Connecting…";
       this.net.connect();
     }
   }
@@ -3041,7 +3050,13 @@ class Game {
 
   _onNet(msg) {
     if (msg.t === "err") {
-      $("net-status").textContent = msg.m || "Network error.";
+      if ($("net-status")) $("net-status").textContent = msg.m || "Network error.";
+      return;
+    }
+    if (msg.t === "open") {
+      if (this.online && !this.running && $("net-status")) {
+        $("net-status").textContent = "Connected. Create a room, or enter a code and JOIN.";
+      }
       return;
     }
     if (msg.t === "ok") {

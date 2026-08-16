@@ -955,11 +955,14 @@ button.mode.on {
   background: rgba(92, 225, 255, 0.22);
 }
 #local-actions, #online-actions {
-  margin-top: 22px;
+  margin-top: 14px;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 12px;
+}
+#online-actions {
+  margin-bottom: 8px;
 }
 .online-row {
   display: flex;
