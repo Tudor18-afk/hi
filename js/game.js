@@ -1,6 +1,7 @@
 import * as THREE from "../vendor/three.module.min.js";
 import { GameAudio } from "./audio.js";
 import { Net } from "./net.js";
+import { HUMAN, loadHumanModels, cloneHuman, findBone, tintHuman, makeHumanMixer, updateHumanAnim } from "./humans.js";
 
 const CFG = {
   world: 64,
@@ -700,7 +701,36 @@ function makeBoxMesh(cx, cy, cz, w, h, d, mat, scene, shadows = true) {
   return mesh;
 }
 
-function buildWorld(scene, mapId) {
+function makeSkyEnv(renderer, theme) {
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  const s = new THREE.Scene();
+  const sky = new THREE.Mesh(
+    new THREE.SphereGeometry(12, 20, 12),
+    new THREE.ShaderMaterial({
+      side: THREE.BackSide,
+      uniforms: {
+        top: { value: new THREE.Color(theme.skyTop) },
+        bot: { value: new THREE.Color(theme.skyBot) },
+      },
+      vertexShader:
+        "varying vec3 vP; void main(){ vP=position; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }",
+      fragmentShader:
+        "varying vec3 vP; uniform vec3 top; uniform vec3 bot; void main(){ float h=normalize(vP).y; gl_FragColor=vec4(mix(bot,top,smoothstep(-0.25,1.0,h)),1.0); }",
+    })
+  );
+  s.add(sky);
+  const sun = new THREE.Mesh(
+    new THREE.SphereGeometry(1.15, 12, 8),
+    new THREE.MeshBasicMaterial({ color: theme.sun || 0xfff2c8 })
+  );
+  sun.position.set(5.2, 8.4, 3.2);
+  s.add(sun);
+  const rt = pmrem.fromScene(s, 0.03);
+  pmrem.dispose();
+  return rt.texture;
+}
+
+function buildWorld(scene, mapId, renderer) {
   const colliders = [];
   const cover = [];
   const spawns = [];
@@ -1060,32 +1090,38 @@ function buildWorld(scene, mapId) {
     spawns.push(v);
   }
 
-  root.add(new THREE.HemisphereLight(theme.hemi[0], theme.hemi[1], theme.hemi[2]));
-  const sun = new THREE.DirectionalLight(theme.sun, theme.sunI || 2.2);
+  root.add(new THREE.HemisphereLight(theme.hemi[0], theme.hemi[1], (theme.hemi[2] || 1.5) * 0.7));
+  const sun = new THREE.DirectionalLight(theme.sun, (theme.sunI || 2.2) * 0.82);
   sun.position.set(28, 46, 18);
   sun.castShadow = true;
-  sun.shadow.mapSize.set(1024, 1024);
+  sun.shadow.mapSize.set(2048, 2048);
   sun.shadow.camera.near = 2;
   sun.shadow.camera.far = 96;
   sun.shadow.camera.left = -44;
   sun.shadow.camera.right = 44;
   sun.shadow.camera.top = 44;
   sun.shadow.camera.bottom = -44;
-  sun.shadow.bias = -0.0003;
-  sun.shadow.normalBias = 0.03;
+  sun.shadow.bias = -0.00025;
+  sun.shadow.normalBias = 0.035;
   root.add(sun);
-  const fill = new THREE.DirectionalLight(0xc8dcff, 0.55);
+  const fill = new THREE.DirectionalLight(0xc8dcff, 0.42);
   fill.position.set(-20, 18, -16);
   root.add(fill);
 
   scene.background = new THREE.Color(theme.skyBot);
-  scene.fog = new THREE.Fog(theme.fog, 42, 155);
+  scene.fog = new THREE.Fog(theme.fog, 38, 148);
+  if (renderer) scene.environment = makeSkyEnv(renderer, theme);
 
   return { colliders, cover, spawns, root, flagA, flagB, padA, padB, hillRing, hill: { x: 0, z: 0, r: 5.2 } };
 }
 
 function matSteel(hex, rough = 0.32, metal = 0.82) {
-  return new THREE.MeshStandardMaterial({ color: hex, roughness: rough, metalness: metal });
+  return new THREE.MeshPhysicalMaterial({
+    color: hex,
+    roughness: rough,
+    metalness: metal,
+    envMapIntensity: 1.25,
+  });
 }
 
 function createWeapon(kind, shadows = true) {
@@ -1273,11 +1309,16 @@ function weaveTex() {
 }
 
 function matSkin(col) {
-  return new THREE.MeshStandardMaterial({
+  const sheen = new THREE.Color(col).multiplyScalar(0.75);
+  return new THREE.MeshPhysicalMaterial({
     color: 0xffffff,
     map: skinTex(col),
-    roughness: 0.46,
-    metalness: 0.02,
+    roughness: 0.42,
+    metalness: 0.0,
+    sheen: 0.45,
+    sheenRoughness: 0.48,
+    sheenColor: sheen,
+    envMapIntensity: 0.85,
   });
 }
 
@@ -1446,7 +1487,7 @@ function addHair(g, look, hairM, hy) {
   }
 }
 
-function createCharacter(look, name, opts = {}) {
+function createProcCharacter(look, name, opts = {}) {
   look = sanitizeLook(look);
   const team = opts.teamColor != null ? opts.teamColor : null;
   const g = new THREE.Group();
@@ -1703,6 +1744,95 @@ function createCharacter(look, name, opts = {}) {
   return { group: g, larm, rarm, lleg, rleg, gun, tag, hpFg, hpGroup };
 }
 
+function createGltfCharacter(look, name, opts = {}) {
+  look = sanitizeLook(look);
+  const team = opts.teamColor != null ? opts.teamColor : null;
+  const model = cloneHuman();
+  if (!model) return createProcCharacter(look, name, opts);
+  const g = new THREE.Group();
+  g.add(model);
+  tintHuman(model, look, team);
+  model.traverse((o) => {
+    if (o.isMesh && /visor/i.test(o.name || "") && look.helmet === "none") o.visible = false;
+  });
+
+  const dummy = () => new THREE.Group();
+  const larm = dummy();
+  const rarm = dummy();
+  const lleg = dummy();
+  const rleg = dummy();
+  g.add(larm, rarm, lleg, rleg);
+
+  const head = findBone(model, "mixamorig:Head");
+  if (head) {
+    const gear = new THREE.Group();
+    gear.position.set(0, 0.09, 0.02);
+    if (look.hair !== "bald") {
+      const hairM = matHair(look.hairColor);
+      const cap = new THREE.Mesh(new THREE.SphereGeometry(0.09, 12, 10, 0, Math.PI * 2, 0, 1.25), hairM);
+      cap.scale.set(1.05, 0.62, 1.08);
+      gear.add(cap);
+      if (look.hair === "mohawk") {
+        const m = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.1, 0.16), hairM);
+        m.position.y = 0.08;
+        gear.add(m);
+      }
+      if (look.hair === "long" || look.hair === "pony") {
+        const fall = new THREE.Mesh(new THREE.CapsuleGeometry(0.04, 0.16, 3, 8), hairM);
+        fall.position.set(0, -0.08, 0.06);
+        gear.add(fall);
+      }
+    }
+    if (look.helmet === "cap") {
+      const dark = matCloth(0x14161a, 0.55);
+      const brim = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.015, 0.09), dark);
+      brim.position.set(0, 0.04, -0.08);
+      gear.add(brim);
+    }
+    head.add(gear);
+  }
+
+  const hand = findBone(model, "mixamorig:RightHand");
+  const gun = createWeapon("rifle");
+  gun.scale.setScalar(0.62);
+  gun.rotation.set(-Math.PI / 2, 0, Math.PI);
+  gun.position.set(0.02, 0.05, 0.04);
+  if (hand) hand.add(gun);
+  else rarm.add(gun);
+
+  const { mixer, actions } = makeHumanMixer(model);
+
+  const tagCol = team != null ? team : look.shirt;
+  const tag = makeLabel(name, hex(tagCol));
+  tag.position.y = 0.52;
+  g.add(tag);
+
+  const hpGroup = new THREE.Group();
+  hpGroup.position.y = 2.08;
+  const hpBg = new THREE.Mesh(
+    new THREE.PlaneGeometry(0.82, 0.07),
+    new THREE.MeshBasicMaterial({ color: 0x111111, depthTest: false })
+  );
+  hpBg.renderOrder = 2;
+  hpGroup.add(hpBg);
+  const hpFg = new THREE.Mesh(
+    new THREE.PlaneGeometry(0.78, 0.05),
+    new THREE.MeshBasicMaterial({ color: 0x5ce1ff, depthTest: false })
+  );
+  hpFg.position.z = 0.01;
+  hpFg.renderOrder = 3;
+  hpGroup.add(hpFg);
+  g.add(hpGroup);
+
+  return { group: g, larm, rarm, lleg, rleg, gun, tag, hpFg, hpGroup, mixer, actions, skinned: true };
+}
+
+function createCharacter(look, name, opts = {}) {
+  look = sanitizeLook(look);
+  if (HUMAN.ready) return createGltfCharacter(look, name, opts);
+  return createProcCharacter(look, name, opts);
+}
+
 function createOperator(color, name, look) {
   const l = look ? sanitizeLook(look) : randomLook(color);
   return createCharacter(l, name, {});
@@ -1906,7 +2036,7 @@ class Game {
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.42;
+    this.renderer.toneMappingExposure = 1.28;
 
     this.scene = new THREE.Scene();
     this.camera = new THREE.PerspectiveCamera(78, innerWidth / innerHeight, 0.05, 240);
@@ -1944,6 +2074,16 @@ class Game {
     this._applyXhair();
     this._syncLookUI();
     this._refreshMannequin();
+    loadHumanModels()
+      .then(() => {
+        this._refreshMannequin();
+        if (this.running) {
+          for (const f of this.fighters || []) {
+            if (f && !f.isPlayer && f.rig) this._rebuildRig(f);
+          }
+        }
+      })
+      .catch((err) => console.warn("Human model failed to load", err));
     this._loop = this._loop.bind(this);
     this.last = performance.now();
     requestAnimationFrame(this._loop);
@@ -2604,7 +2744,7 @@ class Game {
   _loadMap(mapId) {
     mapId = MAPS[mapId] ? mapId : "warehouse";
     if (this.worldRoot) this.scene.remove(this.worldRoot);
-    const built = buildWorld(this.scene, mapId);
+    const built = buildWorld(this.scene, mapId, this.renderer);
     this.worldRoot = built.root;
     this.colliders = built.colliders;
     this.cover = built.cover;
@@ -3028,7 +3168,7 @@ class Game {
 
   _interpRemote(f, dt) {
     if (!f.netPos) {
-      this._poseRemote(f);
+      this._poseRemote(f, dt);
       return;
     }
     const dx = f.pos.x - f.netPos.x;
@@ -3042,14 +3182,13 @@ class Game {
       f.yaw = lerpAng(f.yaw, f.netYaw, k);
       f.pitch = lerp(f.pitch, f.netPitch, k);
     }
-    this._poseRemote(f);
+    this._poseRemote(f, dt);
   }
 
-  _poseRemote(f) {
+  _poseRemote(f, dt = 0.016) {
     if (!f.rig) return;
     if (!f.alive) {
-      const t = 1;
-      f.rig.group.rotation.x = t * 1.2;
+      f.rig.group.rotation.x = 1.2;
       f.rig.group.position.set(f.pos.x, f.pos.y, f.pos.z);
       return;
     }
@@ -3057,12 +3196,19 @@ class Game {
     f.rig.group.rotation.x = 0;
     f.rig.group.position.copy(f.pos);
     f.rig.group.rotation.y = f.yaw;
-    f.walkPhase += 0.2;
-    const swing = Math.sin(f.walkPhase) * 0.35;
-    f.rig.larm.rotation.x = -swing * 0.5;
-    f.rig.rarm.rotation.x = -1.05;
-    f.rig.lleg.rotation.x = swing;
-    f.rig.rleg.rotation.x = -swing;
+    if (!f._lastPose) f._lastPose = f.pos.clone();
+    const spd = f.pos.distanceTo(f._lastPose) / Math.max(dt, 0.008);
+    f._lastPose.copy(f.pos);
+    if (f.rig.skinned) {
+      updateHumanAnim(f.rig, spd, dt);
+    } else {
+      f.walkPhase += 0.2;
+      const swing = Math.sin(f.walkPhase) * 0.35;
+      f.rig.larm.rotation.x = -swing * 0.5;
+      f.rig.rarm.rotation.x = -1.05;
+      f.rig.lleg.rotation.x = swing;
+      f.rig.rleg.rotation.x = -swing;
+    }
     f.rig.hpFg.scale.x = clamp(f.health / (f.maxHealth || 100), 0.02, 1);
     f.rig.hpFg.position.x = (f.rig.hpFg.scale.x - 1) * 0.39;
     f.rig.hpGroup.lookAt(this.camera.position);
@@ -4316,11 +4462,15 @@ class Game {
     this._moveWish(bot, wishx, wishz, speed, dt);
     const spd = Math.hypot(bot.vel.x, bot.vel.z);
     bot.walkPhase += dt * (spd > 0.4 ? 9 : 0);
-    const swing = Math.sin(bot.walkPhase) * Math.min(1, spd / 4) * 0.7;
-    rig.larm.rotation.x = -swing * 0.5;
-    rig.rarm.rotation.x = seeThreat ? -1.15 : swing * 0.35;
-    rig.lleg.rotation.x = swing;
-    rig.rleg.rotation.x = -swing;
+    if (rig.skinned) {
+      updateHumanAnim(rig, spd, dt);
+    } else {
+      const swing = Math.sin(bot.walkPhase) * Math.min(1, spd / 4) * 0.7;
+      rig.larm.rotation.x = -swing * 0.5;
+      rig.rarm.rotation.x = seeThreat ? -1.15 : swing * 0.35;
+      rig.lleg.rotation.x = swing;
+      rig.rleg.rotation.x = -swing;
+    }
     rig.group.position.set(bot.pos.x, bot.pos.y, bot.pos.z);
     rig.group.rotation.y = bot.yaw;
     rig.hpFg.scale.x = clamp(bot.health / (bot.maxHealth || 100), 0.02, 1);
@@ -4528,7 +4678,10 @@ class Game {
     }
   }
 
-  draw() {
+  draw(dt = 0.016) {
+    if (this.mannequin && this.mannequin.mixer && !this.running) {
+      updateHumanAnim(this.mannequin, 0, dt);
+    }
     if (this.player) {
       const eye = this.player.alive
         ? this.player.crouching

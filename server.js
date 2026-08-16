@@ -12,7 +12,8 @@ const TYPES = {
   ".json": "application/json",
   ".svg": "image/svg+xml",
   ".png": "image/png",
-  ".ico": "image/x-icon",
+  ".glb": "model/gltf-binary",
+  ".gltf": "model/gltf+json",
 };
 
 const COLORS = [0xc23b3b, 0x7a3dff, 0x2ea44f, 0x2e8bc9, 0xd4a017, 0xe056a0, 0x8892a0, 0x4dd4c0];
