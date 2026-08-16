@@ -91,10 +91,22 @@ canvas#view {
   top: 13px;
   background: var(--cyan);
 }
-#crosshair.firing .t { top: -4px; }
-#crosshair.firing .b { bottom: -4px; }
-#crosshair.firing .l { left: -4px; }
-#crosshair.firing .r { right: -4px; }
+#crosshair.ads .tick { opacity: 0.2; }
+#crosshair.ads .t { top: 4px; }
+#crosshair.ads .b { bottom: 4px; }
+#crosshair.ads .l { left: 4px; }
+#crosshair.ads .r { right: 4px; }
+#crosshair.ads .dot {
+  width: 3px;
+  height: 3px;
+  left: 12.5px;
+  top: 12.5px;
+  background: #fff;
+  box-shadow: 0 0 8px rgba(92, 225, 255, 0.9);
+}
+#hud.ads #vignette {
+  background: radial-gradient(ellipse at center, transparent 38%, rgba(0, 0, 0, 0.62) 100%);
+}
 
 #hitmarker {
   position: absolute;
@@ -488,7 +500,7 @@ canvas#view {
   border-radius: 50%;
   background: rgba(92, 225, 255, 0.55);
 }
-#touch-fire, #touch-jump {
+#touch-fire, #touch-jump, #touch-aim {
   pointer-events: auto;
   position: absolute;
   right: 28px;
@@ -499,7 +511,8 @@ canvas#view {
   padding: 0;
 }
 #touch-fire { bottom: 28px; }
-#touch-jump { bottom: 128px; background: rgba(255, 179, 71, 0.12); border-color: var(--amber); color: var(--amber); }
+#touch-aim { bottom: 128px; background: rgba(92, 225, 255, 0.12); }
+#touch-jump { bottom: 228px; background: rgba(255, 179, 71, 0.12); border-color: var(--amber); color: var(--amber); }
 
 #match-over {
   background: rgba(4, 8, 14, 0.88);

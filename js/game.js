@@ -42,6 +42,7 @@ const WEAPONS = {
     bloom: 0.005,
     pellets: 1,
     auto: true,
+    adsFov: 56,
   },
   smg: {
     id: "smg",
@@ -59,6 +60,7 @@ const WEAPONS = {
     bloom: 0.004,
     pellets: 1,
     auto: true,
+    adsFov: 60,
   },
   shotgun: {
     id: "shotgun",
@@ -76,6 +78,7 @@ const WEAPONS = {
     bloom: 0.02,
     pellets: 8,
     auto: false,
+    adsFov: 62,
   },
   sniper: {
     id: "sniper",
@@ -93,6 +96,7 @@ const WEAPONS = {
     bloom: 0.012,
     pellets: 1,
     auto: false,
+    adsFov: 34,
   },
 };
 
@@ -922,6 +926,9 @@ class Game {
     this.owned = { rifle: true };
     this.weaponId = "rifle";
     this._firedSemi = false;
+    this.aimT = 0;
+    this.rmbDown = false;
+    this.touchAim = false;
     this.time = 0;
     this.effects = [];
     this.shots = [];
@@ -1089,6 +1096,10 @@ class Game {
     addEventListener("mousedown", (e) => {
       const ui = e.target.closest("button, input, #shop, #menu, #match-over, #paused, #scoreboard");
       if (e.button === 0) this.mouseDown = !ui && !this.inShop;
+      if (e.button === 2) {
+        e.preventDefault();
+        this.rmbDown = !ui && !this.inShop;
+      }
       if (this.running && !this.matchOver && !this.inShop && !ui) {
         if (this.paused) this._resume();
         else {
@@ -1099,6 +1110,7 @@ class Game {
     });
     addEventListener("mouseup", (e) => {
       if (e.button === 0) this.mouseDown = false;
+      if (e.button === 2) this.rmbDown = false;
       this.dragging = false;
     });
     addEventListener("mousemove", (e) => {
@@ -1114,6 +1126,9 @@ class Game {
       this._syncLookHint();
     });
     $("view").addEventListener("contextmenu", (e) => e.preventDefault());
+    addEventListener("contextmenu", (e) => {
+      if (this.running) e.preventDefault();
+    });
     this._bindTouch();
   }
 
@@ -1121,6 +1136,7 @@ class Game {
     const stick = $("stick");
     const fire = $("touch-fire");
     const jump = $("touch-jump");
+    const aim = $("touch-aim");
     const showTouch = () => {
       this.usingTouch = true;
       $("touch-ui").classList.remove("hidden");
@@ -1157,6 +1173,15 @@ class Game {
     jump.addEventListener("touchend", () => {
       this.touchJump = false;
     });
+    if (aim) {
+      aim.addEventListener("touchstart", (e) => {
+        e.preventDefault();
+        this.touchAim = true;
+      }, { passive: false });
+      aim.addEventListener("touchend", () => {
+        this.touchAim = false;
+      });
+    }
 
     addEventListener("touchstart", (e) => {
       if (!this.running || this.matchOver || this.inShop) return;
@@ -1164,7 +1189,7 @@ class Game {
       for (const t of e.changedTouches) {
         if (t.identifier === this.touchStick.id) continue;
         const el = document.elementFromPoint(t.clientX, t.clientY);
-        if (el && (el.id === "touch-fire" || el.id === "touch-jump" || el.closest("#stick"))) continue;
+        if (el && (el.id === "touch-fire" || el.id === "touch-jump" || el.id === "touch-aim" || el.closest("#stick"))) continue;
         if (this.touchLook.id == null) {
           this.touchLook.id = t.identifier;
           this.touchLook.x = t.clientX;
@@ -1210,8 +1235,8 @@ class Game {
 
   _look(dx, dy, allowed) {
     if (!allowed || !this.player || !this.player.alive || this.paused || this.inShop || !this.running) return;
-    this.player.yaw -= dx * this.sens * 0.0022;
-    this.player.pitch -= dy * this.sens * 0.0022;
+    this.player.yaw -= dx * this.sens * 0.0022 * (1 - this.aimT * 0.52);
+    this.player.pitch -= dy * this.sens * 0.0022 * (1 - this.aimT * 0.52);
     this.player.pitch = clamp(this.player.pitch, -1.45, 1.45);
   }
 
@@ -1557,6 +1582,11 @@ class Game {
       this.owned = { rifle: true };
       this.weaponId = "rifle";
       this._firedSemi = false;
+      this.aimT = 0;
+      this.rmbDown = false;
+      this.touchAim = false;
+      this.camera.fov = 78;
+      this.camera.updateProjectionMatrix();
       this.pointerLocked = false;
 
       for (const b of this.bots) if (b.rig) this.scene.remove(b.rig.group);
@@ -1843,6 +1873,13 @@ class Game {
     this.inShop = true;
     this.shopLeft = CFG.shopTime;
     this.roundLeft = 0;
+    this.aimT = 0;
+    this.rmbDown = false;
+    this.touchAim = false;
+    this.camera.fov = 78;
+    this.camera.updateProjectionMatrix();
+    $("crosshair").classList.remove("ads");
+    if ($("hud")) $("hud").classList.remove("ads");
     this.paused = false;
     $("paused").classList.add("hidden");
     if (document.exitPointerLock) document.exitPointerLock();
@@ -2288,12 +2325,26 @@ class Game {
   _updatePlayer(dt) {
     const p = this.player;
     if (!p.alive) {
+      this.aimT = lerp(this.aimT, 0, 0.25);
+      $("crosshair").classList.remove("ads");
+      if ($("hud")) $("hud").classList.remove("ads");
+      if (this.camera.fov !== 78) {
+        this.camera.fov = lerp(this.camera.fov, 78, 0.25);
+        this.camera.updateProjectionMatrix();
+      }
       $("respawn-cd").textContent = `RESPAWNING ${Math.max(0, p.respawnT).toFixed(1)}`;
       return;
     }
     $("death-screen").classList.add("hidden");
     p.crouching = this.keys.has("KeyC");
-    const sprint = this.keys.has("ShiftLeft") || this.keys.has("ShiftRight");
+    const w = this._weapon();
+    const wantAds =
+      (this.rmbDown || this.keys.has("KeyE") || this.touchAim) &&
+      !this.paused &&
+      !this.inShop;
+    this.aimT = lerp(this.aimT, wantAds ? 1 : 0, 1 - Math.exp(-14 * dt));
+    const ads = this.aimT;
+    const sprint = !wantAds && (this.keys.has("ShiftLeft") || this.keys.has("ShiftRight"));
     let ix = 0;
     let iz = 0;
     if (this.keys.has("KeyW") || this.keys.has("ArrowUp")) iz -= 1;
@@ -2314,6 +2365,7 @@ class Game {
     const wx = fx * -iz + rx * ix;
     const wz = fz * -iz + rz * ix;
     let speed = p.crouching ? CFG.walk * 0.55 : sprint && iz < 0 ? CFG.sprint : CFG.walk;
+    if (ads > 0.2) speed *= lerp(1, 0.72, ads);
     if (!p.grounded) speed *= 0.85;
     this._moveWish(p, wx, wz, speed, dt);
     if ((this.keys.has("Space") || this.touchJump) && p.grounded) p.vel.y = CFG.jump;
@@ -2331,7 +2383,6 @@ class Game {
     p.shootCd -= dt;
     p.bloom = Math.max(0, p.bloom - dt * 0.085);
     p.recoil = lerp(p.recoil, 0, 1 - Math.exp(-10 * dt));
-    const w = this._weapon();
     if (this.keys.has("KeyR") && p.reloadT <= 0 && p.ammo < w.mag && p.reserve > 0) {
       p.reloadT = w.reload;
       this.audio.reload();
@@ -2362,18 +2413,18 @@ class Game {
       this._firedSemi = true;
       p.ammo -= 1;
       p.shootCd = 60 / w.rpm;
-      p.recoil += w.recoil;
-      p.bloom = Math.min(0.055, p.bloom + w.bloom);
+      p.recoil += w.recoil * lerp(1, 0.55, ads);
+      p.bloom = Math.min(0.055, p.bloom + w.bloom * lerp(1, 0.35, ads));
       this.camera.updateMatrixWorld();
       const origin = new THREE.Vector3();
       const dir = new THREE.Vector3();
       this.camera.getWorldPosition(origin);
       this.camera.getWorldDirection(dir);
-      const hip = p.crouching ? w.adsSpread : w.spread;
+      const hip = lerp(w.spread, w.adsSpread, ads);
       const spread =
         hip +
-        p.bloom +
-        (moving ? 0.016 : 0) +
+        p.bloom * lerp(1, 0.25, ads) +
+        (moving ? 0.016 * lerp(1, 0.2, ads) : 0) +
         (p.grounded ? 0 : 0.022);
       this.fire(p, origin.x, origin.y, origin.z, dir.x, dir.y, dir.z, Math.max(0.0004, spread), {
         pellets: w.pellets,
@@ -2393,9 +2444,21 @@ class Game {
       this.gunRoot.position.z = lerp(this.gunRoot.position.z, this.gunRestZ || -0.62, 0.2);
     }
 
-    const sway = Math.sin(p.walkPhase) * (moving ? 0.018 : 0.004);
-    this.viewmodel.position.x = sway;
-    this.viewmodel.position.y = Math.abs(Math.sin(p.walkPhase * 2)) * (moving ? 0.012 : 0);
+    const sway = Math.sin(p.walkPhase) * (moving ? 0.018 : 0.004) * (1 - ads);
+    const bob = Math.abs(Math.sin(p.walkPhase * 2)) * (moving ? 0.012 : 0) * (1 - ads);
+    this.viewmodel.position.x = lerp(sway, -0.318, ads);
+    this.viewmodel.position.y = lerp(bob, 0.255, ads);
+    this.viewmodel.position.z = lerp(0, 0.16, ads);
+    this.viewmodel.rotation.x = lerp(0, -0.04, ads);
+    this.viewmodel.rotation.y = lerp(0, -0.08, ads);
+    this.viewmodel.rotation.z = lerp(0, 0.04, ads);
+    $("crosshair").classList.toggle("ads", ads > 0.55);
+    if ($("hud")) $("hud").classList.toggle("ads", ads > 0.45);
+    const fov = lerp(78, w.adsFov || 56, ads);
+    if (Math.abs(this.camera.fov - fov) > 0.04) {
+      this.camera.fov = fov;
+      this.camera.updateProjectionMatrix();
+    }
   }
 
   _pickTarget(bot) {
