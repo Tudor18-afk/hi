@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>DEAD AHEAD</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Anton&family=IBM+Plex+Mono:wght@400;600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="css/style.css" />
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <div id="hud">
+      <div id="vignette"></div>
+      <div id="hurt"></div>
+      <div id="crosshair"><span class="h"></span><span class="v"></span></div>
+      <div class="top-left">
+        <div class="label">Wave</div>
+        <div class="value" id="wave-val">00</div>
+      </div>
+      <div class="top-right">
+        <div class="label">Kills</div>
+        <div class="value" id="kills-val">0</div>
+        <div class="label" style="margin-top: 10px">Hostiles</div>
+        <div class="value" id="alive-val">0</div>
+      </div>
+      <div class="bottom-left">
+        <div class="label">Vitals</div>
+        <div class="value" id="health-val">100</div>
+        <div id="health-bar"><div id="health-fill"></div></div>
+      </div>
+      <div class="bottom-right ammo">
+        <div class="label">Rifle</div>
+        <div>
+          <span class="value" id="mag-val">30</span>
+          <span class="reserve" id="reserve-val">/ 90</span>
+        </div>
+      </div>
+      <div id="wave-banner"></div>
+      <div id="pickup-msg"></div>
+    </div>
+
+    <div id="overlay">
+      <div class="panel" id="start-screen">
+        <div class="eyebrow">Outbreak // Sector 9</div>
+        <h1>DEAD AHEAD</h1>
+        <p class="blurb">
+          Hold the crossroads until the dead stop coming. Zombies hunt your body in the
+          world — looking around will not fling them across the street.
+        </p>
+        <dl class="controls">
+          <dt>WASD</dt>
+          <dd>Move</dd>
+          <dt>Mouse</dt>
+          <dd>Look</dd>
+          <dt>Click</dt>
+          <dd>Fire</dd>
+          <dt>R</dt>
+          <dd>Reload</dd>
+          <dt>Shift</dt>
+          <dd>Sprint</dd>
+          <dt>Space</dt>
+          <dd>Jump</dd>
+        </dl>
+        <div class="row">
+          <span>Look speed</span>
+          <input id="sense" type="range" min="0.4" max="1.8" step="0.05" value="1" />
+        </div>
+        <p id="resume-hint" class="blurb hidden" style="margin-bottom: 16px">Click resume to lock the mouse again.</p>
+        <button id="play" type="button">Click to survive</button>
+      </div>
+      <div class="panel hidden" id="death-screen">
+        <div class="eyebrow">You went down</div>
+        <h1>DEAD</h1>
+        <p class="stats" id="death-stats"></p>
+        <button id="again" type="button">Try again</button>
+      </div>
+    </div>
+
+    <script type="module" src="js/main.js"></script>
+  </body>
+</html>

@@ -1,0 +1,290 @@
+:root {
+  --blood: #c2301a;
+  --bone: #e7dcc8;
+  --dim: #8a8174;
+  --panel: rgba(8, 7, 6, 0.78);
+  --line: rgba(194, 48, 26, 0.55);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  user-select: none;
+}
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #050505;
+  color: var(--bone);
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+}
+
+canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+#hud {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 5;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+#hud.visible {
+  opacity: 1;
+}
+
+#crosshair {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 14px;
+  height: 14px;
+  transform: translate(-50%, -50%);
+}
+
+#crosshair span {
+  position: absolute;
+  background: rgba(231, 220, 200, 0.85);
+  box-shadow: 0 0 6px rgba(0, 0, 0, 0.8);
+}
+
+#crosshair .h {
+  left: 0;
+  top: 6px;
+  width: 14px;
+  height: 2px;
+}
+
+#crosshair .v {
+  left: 6px;
+  top: 0;
+  width: 2px;
+  height: 14px;
+}
+
+#crosshair.hot span {
+  background: var(--blood);
+}
+
+#vignette {
+  position: absolute;
+  inset: 0;
+  box-shadow: inset 0 0 140px 40px rgba(0, 0, 0, 0.55);
+  transition: box-shadow 0.15s linear;
+}
+
+#hurt {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at center, transparent 40%, rgba(140, 10, 0, 0.55) 100%);
+  opacity: 0;
+  transition: opacity 0.12s linear;
+}
+
+.top-left,
+.top-right,
+.bottom-left,
+.bottom-right {
+  position: absolute;
+  text-shadow: 0 1px 2px #000;
+}
+
+.top-left {
+  top: 22px;
+  left: 24px;
+}
+
+.top-right {
+  top: 22px;
+  right: 24px;
+  text-align: right;
+}
+
+.bottom-left {
+  left: 24px;
+  bottom: 24px;
+}
+
+.bottom-right {
+  right: 24px;
+  bottom: 24px;
+  text-align: right;
+}
+
+.label {
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  color: var(--dim);
+  text-transform: uppercase;
+}
+
+.value {
+  font-family: "Anton", Impact, sans-serif;
+  font-size: 34px;
+  line-height: 1;
+  letter-spacing: 0.04em;
+}
+
+.ammo .value {
+  font-size: 42px;
+}
+
+.ammo .reserve {
+  font-size: 16px;
+  color: var(--dim);
+  margin-left: 6px;
+}
+
+#health-bar {
+  margin-top: 8px;
+  width: 220px;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(231, 220, 200, 0.2);
+}
+
+#health-fill {
+  height: 100%;
+  width: 100%;
+  background: linear-gradient(90deg, #6a120c, var(--blood));
+  transform-origin: left center;
+}
+
+#wave-banner {
+  position: absolute;
+  top: 18%;
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: "Anton", Impact, sans-serif;
+  font-size: 64px;
+  letter-spacing: 0.18em;
+  opacity: 0;
+  text-shadow: 0 0 24px rgba(194, 48, 26, 0.45);
+}
+
+#pickup-msg {
+  position: absolute;
+  bottom: 120px;
+  left: 50%;
+  transform: translateX(-50%);
+  letter-spacing: 0.16em;
+  font-size: 13px;
+  text-transform: uppercase;
+  opacity: 0;
+}
+
+#overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background:
+    radial-gradient(ellipse at center, rgba(40, 12, 8, 0.35), rgba(4, 3, 3, 0.92) 70%),
+    #070605;
+}
+
+#overlay.hidden {
+  display: none;
+}
+
+.panel {
+  width: min(560px, calc(100% - 40px));
+  padding: 42px 40px 36px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  box-shadow: 0 20px 80px rgba(0, 0, 0, 0.55);
+}
+
+.eyebrow {
+  color: var(--blood);
+  letter-spacing: 0.38em;
+  font-size: 11px;
+  text-transform: uppercase;
+}
+
+h1 {
+  font-family: "Anton", Impact, sans-serif;
+  font-size: clamp(48px, 8vw, 84px);
+  letter-spacing: 0.06em;
+  line-height: 0.9;
+  margin: 8px 0 12px;
+}
+
+.blurb {
+  color: var(--dim);
+  font-size: 14px;
+  line-height: 1.55;
+  max-width: 46ch;
+}
+
+.controls {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 6px 18px;
+  margin: 22px 0 18px;
+  font-size: 13px;
+}
+
+.controls dt {
+  color: var(--bone);
+  letter-spacing: 0.08em;
+}
+
+.controls dd {
+  color: var(--dim);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 16px 0 22px;
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+
+input[type="range"] {
+  flex: 1;
+  accent-color: var(--blood);
+}
+
+button {
+  pointer-events: auto;
+  cursor: pointer;
+  border: 1px solid var(--blood);
+  background: #8f1a10;
+  color: var(--bone);
+  font-family: inherit;
+  font-size: 13px;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  padding: 14px 22px;
+}
+
+button:hover {
+  background: #b22416;
+}
+
+.stats {
+  margin: 16px 0 20px;
+  color: var(--dim);
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.hidden {
+  display: none !important;
+}
