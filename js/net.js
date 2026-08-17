@@ -41,13 +41,22 @@ export class Net {
     this.ws.onopen = () => {
       this.connected = true;
       this.status = "online";
+      this._failCount = 0;
       this._emit({ t: "open" });
     };
     this.ws.onclose = () => {
+      const inRoom = !!this.id;
       this.connected = false;
       this.status = "offline";
-      if (!this.id) this._emit({ t: "err", m: "Could not reach the game server. Hard-refresh this page." });
-      else this._emit({ t: "close" });
+      this.ws = null;
+      if (inRoom) {
+        this._emit({ t: "close" });
+        return;
+      }
+      this._failCount = (this._failCount || 0) + 1;
+      this._emit({ t: "drop" });
+      if (this._failCount < 8) this._scheduleReconnect();
+      else this._emit({ t: "err", m: "Could not reach the game server. Hard-refresh this page." });
     };
     this.ws.onerror = () => {
       this.status = "offline";
@@ -108,6 +117,14 @@ export class Net {
     this._whenOpen(() => this.send({ t: "lobbies" }));
   }
 
+  _scheduleReconnect() {
+    if (this._reconnectT) return;
+    this._reconnectT = setTimeout(() => {
+      this._reconnectT = null;
+      this.connect();
+    }, 1200);
+  }
+
   _whenOpen(fn) {
     const ws = this.connect();
     if (!ws) {
@@ -124,7 +141,8 @@ export class Net {
     };
     const onErr = () => {
       ws.removeEventListener("open", onOpen);
-      this._emit({ t: "err", m: "Online connection failed. Hard-refresh and try again." });
+      this._emit({ t: "drop" });
+      this._scheduleReconnect();
     };
     ws.addEventListener("open", onOpen, { once: true });
     ws.addEventListener("error", onErr, { once: true });

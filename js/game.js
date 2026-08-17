@@ -2066,7 +2066,11 @@ class Game {
     this.shots = [];
     this.idSeq = 1;
     this._bind();
-    this._applyProgressUI();
+    try {
+      this._applyProgressUI();
+    } catch (err) {
+      console.warn("Could not restore saved progress", err);
+    }
 
     try {
       this.renderer = new THREE.WebGLRenderer({
@@ -3083,8 +3087,11 @@ class Game {
     const mode = MODES[id] || MODES.ffa;
     this.modeId = mode.id;
     this.mode = mode;
-    for (const btn of $("game-row").querySelectorAll("[data-game]")) {
-      btn.classList.toggle("on", btn.dataset.game === mode.id);
+    const row = $("game-row");
+    if (row) {
+      for (const btn of row.querySelectorAll("[data-game]")) {
+        btn.classList.toggle("on", btn.dataset.game === mode.id);
+      }
     }
     if ($("mode-name-hud")) $("mode-name-hud").textContent = mode.short;
     this._syncTeamPick();
@@ -3327,8 +3334,11 @@ class Game {
     const diff = DIFFICULTY[id] || DIFFICULTY.normal;
     this.diffId = diff.id;
     this.difficulty = diff;
-    for (const btn of $("diff-row").querySelectorAll("[data-diff]")) {
-      btn.classList.toggle("on", btn.dataset.diff === diff.id);
+    const row = $("diff-row");
+    if (row) {
+      for (const btn of row.querySelectorAll("[data-diff]")) {
+        btn.classList.toggle("on", btn.dataset.diff === diff.id);
+      }
     }
     if ($("diff-name-hud")) $("diff-name-hud").textContent = diff.name;
     this._saveProgress();
@@ -3337,8 +3347,10 @@ class Game {
   _setMap(id) {
     if (this.running || !this.scene) return;
     const map = MAPS[id] ? id : "warehouse";
-    for (const btn of $("map-row").querySelectorAll("[data-map]")) {
-      btn.classList.toggle("on", btn.dataset.map === map);
+    if ($("map-row")) {
+      for (const btn of $("map-row").querySelectorAll("[data-map]")) {
+        btn.classList.toggle("on", btn.dataset.map === map);
+      }
     }
     this._loadMap(map);
     this._saveProgress();
@@ -3385,7 +3397,7 @@ class Game {
     if (!list.length) {
       const empty = document.createElement("div");
       empty.className = "lobby-empty";
-      empty.textContent = "No open lobbies yet. Hit CREATE ROOM (ONLINE) and it will show up here.";
+      empty.textContent = "No open rooms yet. Click PLAY to start now, or ONLINE → CREATE ROOM for friends.";
       el.appendChild(empty);
       return;
     }
@@ -3442,13 +3454,14 @@ class Game {
   }
 
   _joinRoom() {
-    const code = ($("room-code").value || "").trim();
+    const code = ($("room-code") && $("room-code").value || "").trim();
     if (!code) {
-      $("net-status").textContent = "Enter a room code to join.";
+      if (this.online) this._createRoom();
+      else this.startMatch();
       return;
     }
     if (!this.online) this._setMode(true);
-    $("net-status").textContent = "Joining " + code.toUpperCase() + "…";
+    if ($("net-status")) $("net-status").textContent = "Joining " + code.toUpperCase() + "…";
     this.net.join(code, this._playerName(), this.look, this.wantTeam);
   }
 
@@ -3457,9 +3470,13 @@ class Game {
       if ($("net-status")) $("net-status").textContent = msg.m || "Network error.";
       return;
     }
+    if (msg.t === "drop") {
+      if (!this.running && $("net-status")) $("net-status").textContent = "Reconnecting to lobby…";
+      return;
+    }
     if (msg.t === "open") {
       if (!this.running) {
-        if ($("net-status")) $("net-status").textContent = "Lobby live. Pick a room, or create one.";
+        if ($("net-status")) $("net-status").textContent = "Lobby live. Click PLAY to start, or join a room.";
         this.net.watch();
       }
       return;
@@ -3848,9 +3865,13 @@ class Game {
       this._saveProgress();
     } catch (err) {
       console.error(err);
-      $("menu").classList.remove("hidden");
+      this.running = false;
+      this._matchOpen = false;
+      if ($("hud")) $("hud").classList.add("hidden");
+      if ($("menu")) $("menu").classList.remove("hidden");
       const tag = document.querySelector("#menu .tag");
       if (tag) tag.textContent = "Could not start the match. Try Chrome or Firefox on a computer.";
+      this._bootLobby();
     }
   }
 
