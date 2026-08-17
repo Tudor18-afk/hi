@@ -52,7 +52,7 @@
 
       <div id="top-center">
         <div id="round-timer">5:00</div>
-        <div class="frag-limit">ROUND <b id="round-num">1</b></div>
+        <div class="frag-limit"><span id="round-label">ROUND</span> <b id="round-num">1</b></div>
         <div id="lead-chip">LEAD · <span id="lead-name">—</span> <span id="lead-score">0</span></div>
         <div id="team-score" class="hidden">
           <span class="ts a">ALPHA <b id="score-a">0</b></span>
@@ -225,11 +225,25 @@
     </div>
 
     <div id="match-over" class="hidden">
-      <div class="eyebrow">MATCH COMPLETE</div>
+      <div class="eyebrow" id="over-eyebrow">MATCH COMPLETE</div>
       <h2 id="winner-name">YOU</h2>
       <p id="winner-sub">took the arena</p>
       <div id="final-board"></div>
       <button id="btn-again" type="button">RUN IT BACK</button>
+      <button id="btn-next-mission" class="hidden" type="button">NEXT MISSION</button>
+      <button id="btn-ops" class="hidden" type="button">OPERATIONS</button>
+    </div>
+
+    <div id="briefing" class="hidden">
+      <div class="brief-card">
+        <div class="eyebrow" id="brief-op">OPERATION NEXUS</div>
+        <h2 id="brief-title">RANGE FIRE</h2>
+        <p id="brief-story"></p>
+        <div id="brief-obj">OBJECTIVE</div>
+        <div id="brief-meta"></div>
+        <button id="btn-deploy" type="button">DEPLOY</button>
+        <button id="btn-brief-back" type="button">BACK</button>
+      </div>
     </div>
 
     <div id="menu">
@@ -238,16 +252,18 @@
         <div class="eyebrow" id="menu-eyebrow">LOCAL OR ONLINE</div>
         <h1>NEXUS<span>ARENA</span></h1>
         <p class="tag">
-          Live lobby on this menu. Credits, guns, look, and career save in this browser. Pick FFA, team deathmatch, capture the flag, or king of the hill.
+          Run Operation Nexus, a live lobby, or a local skirmish. Credits, guns, look, and campaign progress save in this browser.
         </p>
         <div class="career-bar" id="career-bar">
           <div><span>CREDITS</span><b id="menu-credits">¢ 200</b></div>
           <div><span>K / D</span><b id="menu-kd">0–0</b></div>
           <div><span>WINS</span><b id="menu-wins">0</b></div>
+          <div><span>OPS</span><b id="menu-ops">1 / 8</b></div>
           <div><span>LOADOUT</span><b id="menu-guns">AR-15</b></div>
         </div>
         <div class="mode-row">
           <button type="button" class="mode on" id="mode-local">LOCAL</button>
+          <button type="button" class="mode" id="mode-campaign">CAMPAIGN</button>
           <button type="button" class="mode" id="mode-online">ONLINE</button>
         </div>
         <div class="pick-block lobby-block" id="lobby-panel">
@@ -260,6 +276,10 @@
             <button id="btn-join" type="button">GO</button>
           </div>
           <div id="net-status">Click PLAY to start. Finding open lobbies…</div>
+        </div>
+        <div class="pick-block lobby-block hidden" id="campaign-panel">
+          <div class="pick-label">OPERATION NEXUS</div>
+          <div id="campaign-list"></div>
         </div>
         <div id="local-actions">
           <button id="btn-start" type="button">PLAY</button>
@@ -277,49 +297,53 @@
             <input id="sens" type="range" min="0.4" max="2.8" step="0.1" value="1.2" />
             <b id="sens-val">1.2</b>
           </label>
-          <label>
-            <span>AI BOTS (0 = NONE)</span>
-            <input id="bots" type="range" min="0" max="8" step="1" value="8" />
-            <b id="bots-val">8</b>
-          </label>
         </div>
-        <div class="pick-block">
-          <div class="pick-label">GAME MODE</div>
-          <div class="mode-row wrap" id="game-row">
-            <button type="button" class="mode on" data-game="ffa">FFA</button>
-            <button type="button" class="mode" data-game="tdm">TEAM DM</button>
-            <button type="button" class="mode" data-game="ctf">CTF</button>
-            <button type="button" class="mode" data-game="koth">KING HILL</button>
+        <div id="skirmish-opts">
+          <div class="settings">
+            <label>
+              <span>AI BOTS (0 = NONE)</span>
+              <input id="bots" type="range" min="0" max="8" step="1" value="8" />
+              <b id="bots-val">8</b>
+            </label>
           </div>
-        </div>
-        <div class="pick-block" id="team-block">
-          <div class="pick-label">YOUR TEAM</div>
-          <div class="mode-row wrap" id="team-row">
-            <button type="button" class="mode on team-alpha" data-team="0">ALPHA</button>
-            <button type="button" class="mode team-bravo" data-team="1">BRAVO</button>
+          <div class="pick-block">
+            <div class="pick-label">GAME MODE</div>
+            <div class="mode-row wrap" id="game-row">
+              <button type="button" class="mode on" data-game="ffa">FFA</button>
+              <button type="button" class="mode" data-game="tdm">TEAM DM</button>
+              <button type="button" class="mode" data-game="ctf">CTF</button>
+              <button type="button" class="mode" data-game="koth">KING HILL</button>
+            </div>
           </div>
-        </div>
-        <div class="pick-block">
-          <div class="pick-label">DIFFICULTY</div>
-          <div class="mode-row wrap" id="diff-row">
-            <button type="button" class="mode" data-diff="easy">EASY</button>
-            <button type="button" class="mode on" data-diff="normal">NORMAL</button>
-            <button type="button" class="mode" data-diff="hard">HARD</button>
-            <button type="button" class="mode" data-diff="insane">INSANE</button>
+          <div class="pick-block" id="team-block">
+            <div class="pick-label">YOUR TEAM</div>
+            <div class="mode-row wrap" id="team-row">
+              <button type="button" class="mode on team-alpha" data-team="0">ALPHA</button>
+              <button type="button" class="mode team-bravo" data-team="1">BRAVO</button>
+            </div>
           </div>
-        </div>
-        <div class="pick-block">
-          <div class="pick-label">MAP</div>
-          <div class="mode-row wrap" id="map-row">
-            <button type="button" class="mode on" data-map="warehouse">SUNSET RANGE</button>
-            <button type="button" class="mode" data-map="yard">PINE RIDGE</button>
-            <button type="button" class="mode" data-map="labs">HARBOR QUAY</button>
+          <div class="pick-block">
+            <div class="pick-label">DIFFICULTY</div>
+            <div class="mode-row wrap" id="diff-row">
+              <button type="button" class="mode" data-diff="easy">EASY</button>
+              <button type="button" class="mode on" data-diff="normal">NORMAL</button>
+              <button type="button" class="mode" data-diff="hard">HARD</button>
+              <button type="button" class="mode" data-diff="insane">INSANE</button>
+            </div>
+          </div>
+          <div class="pick-block">
+            <div class="pick-label">MAP</div>
+            <div class="mode-row wrap" id="map-row">
+              <button type="button" class="mode on" data-map="warehouse">SUNSET RANGE</button>
+              <button type="button" class="mode" data-map="yard">PINE RIDGE</button>
+              <button type="button" class="mode" data-map="labs">HARBOR QUAY</button>
+            </div>
           </div>
         </div>
         <div class="help">
           <div><kbd>WASD</kbd> move <kbd>SHIFT</kbd> sprint <kbd>SPACE</kbd> jump <kbd>C</kbd> crouch</div>
           <div><kbd>LMB</kbd> fire <kbd>RMB</kbd>/<kbd>E</kbd> aim <kbd>P</kbd> look / crosshair <kbd>Y</kbd> menu <kbd>TAB</kbd> board</div>
-          <div>Lobby list is always on this menu — click a room to join. Progress saves automatically.</div>
+          <div>Campaign: eight missions. Beat one to unlock the next. Progress saves automatically.</div>
           <div>CTF: grab the enemy flag and run it to your pad. Hill: hold the gold ring. Team modes: pick ALPHA or BRAVO.</div>
         </div>
       </div>

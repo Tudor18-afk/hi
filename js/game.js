@@ -142,6 +142,139 @@ const MODES = {
   koth: { id: "koth", name: "KING OF THE HILL", teams: true, short: "HILL" },
 };
 
+const CAMPAIGN = [
+  {
+    id: "range",
+    title: "RANGE FIRE",
+    story: "Command wants a pulse check. Walk Sunset Range and put eight hostiles down. No excuses.",
+    map: "warehouse",
+    mode: "ffa",
+    diff: "easy",
+    bots: 4,
+    time: 90,
+    win: "kills",
+    target: 8,
+    lives: 0,
+    reward: 200,
+    gun: "smg",
+  },
+  {
+    id: "contact",
+    title: "FIRST CONTACT",
+    story: "Bravo slipped a squad onto the range. You run ALPHA. Put them in the dirt — twelve team frags.",
+    map: "warehouse",
+    mode: "tdm",
+    diff: "easy",
+    bots: 6,
+    time: 120,
+    win: "score",
+    target: 12,
+    team: 0,
+    lives: 0,
+    reward: 350,
+  },
+  {
+    id: "ridge",
+    title: "RIDGE HUNT",
+    story: "Pine Ridge went dark. Ten confirmed kills, and you finish first. Come back with the lead.",
+    map: "yard",
+    mode: "ffa",
+    diff: "normal",
+    bots: 5,
+    time: 100,
+    win: "lead",
+    target: 10,
+    lives: 0,
+    reward: 300,
+  },
+  {
+    id: "hill",
+    title: "HOLD THE RING",
+    story: "The gold ring on the ridge is the only high ground that matters. Hold it until ALPHA hits 25.",
+    map: "yard",
+    mode: "koth",
+    diff: "normal",
+    bots: 6,
+    time: 110,
+    win: "score",
+    target: 25,
+    team: 0,
+    lives: 0,
+    reward: 400,
+    gun: "shotgun",
+  },
+  {
+    id: "quay",
+    title: "QUAY PUSH",
+    story: "Harbor Quay is Bravo's dock. Take ALPHA in and rack fifteen team frags.",
+    map: "labs",
+    mode: "tdm",
+    diff: "hard",
+    bots: 6,
+    time: 130,
+    win: "score",
+    target: 15,
+    team: 0,
+    lives: 0,
+    reward: 450,
+  },
+  {
+    id: "colors",
+    title: "STEAL THEIR COLORS",
+    story: "Bravo's flag sits on the quay. Two captures. Don't die with it in your hands.",
+    map: "labs",
+    mode: "ctf",
+    diff: "hard",
+    bots: 6,
+    time: 150,
+    win: "score",
+    target: 2,
+    team: 0,
+    lives: 6,
+    reward: 550,
+    gun: "sniper",
+  },
+  {
+    id: "veterans",
+    title: "VETERAN SWEEP",
+    story: "The veterans came back to Sunset Range. Twelve frags and you finish first, or you don't finish.",
+    map: "warehouse",
+    mode: "ffa",
+    diff: "hard",
+    bots: 7,
+    time: 120,
+    win: "lead",
+    target: 12,
+    lives: 5,
+    reward: 700,
+  },
+  {
+    id: "last",
+    title: "LAST LIGHT",
+    story: "One last push on the quay. Insane odds. Twenty ALPHA frags. Command is watching.",
+    map: "labs",
+    mode: "tdm",
+    diff: "insane",
+    bots: 8,
+    time: 150,
+    win: "score",
+    target: 20,
+    team: 0,
+    lives: 4,
+    reward: 1200,
+  },
+];
+
+function campaignGoal(m) {
+  if (!m) return "COMPLETE THE OP";
+  if (m.win === "kills") return m.target + " FRAGS";
+  if (m.win === "lead") return m.target + " FRAGS AND FINISH FIRST";
+  if (m.win === "survive") return "SURVIVE AND HOLD THE LEAD";
+  if (m.mode === "ctf") return m.target + " FLAG CAPTURES";
+  if (m.mode === "koth") return "HOLD THE HILL TO " + m.target;
+  return m.target + " TEAM FRAGS";
+}
+
 const TEAMS = [
   { id: 0, name: "ALPHA", color: 0x3ec4ff },
   { id: 1, name: "BRAVO", color: 0xff6a3d },
@@ -2028,6 +2161,12 @@ class Game {
     this.difficulty = DIFFICULTY.normal;
     this.wantTeam = 0;
     this.online = false;
+    this.playMode = "local";
+    this.campaignSave = { unlocked: 0, done: [] };
+    this.campaignActive = false;
+    this.campaignIndex = 0;
+    this.campaignMission = null;
+    this.campaignLives = 0;
     this.humans = [];
     this.net = new Net();
     this.net.onEvent = (msg) => this._onNet(msg);
@@ -2216,11 +2355,17 @@ class Game {
     }
     $("mode-local").addEventListener("click", (e) => {
       e.preventDefault();
-      this._setMode(false);
+      this._setPlayMode("local");
     });
+    if ($("mode-campaign")) {
+      $("mode-campaign").addEventListener("click", (e) => {
+        e.preventDefault();
+        this._setPlayMode("campaign");
+      });
+    }
     $("mode-online").addEventListener("click", (e) => {
       e.preventDefault();
-      this._setMode(true);
+      this._setPlayMode("online");
     });
     if ($("btn-create")) {
       $("btn-create").addEventListener("click", (e) => {
@@ -2247,13 +2392,51 @@ class Game {
       e.preventDefault();
       e.stopPropagation();
       if (this.online) this._createRoom();
+      else if (this.playMode === "campaign") this._openBriefing(this.campaignIndex);
       else this.startMatch();
     });
     $("btn-again").addEventListener("click", (e) => {
       e.preventDefault();
+      if (this.campaignActive || this.playMode === "campaign") {
+        this._deployCampaign(this.campaignIndex);
+        return;
+      }
       if (this.online && this.net.host) this.net.send({ t: "reset" });
       this.startMatch({ keepOnline: this.online });
     });
+    if ($("btn-next-mission")) {
+      $("btn-next-mission").addEventListener("click", (e) => {
+        e.preventDefault();
+        const next = Math.min(CAMPAIGN.length - 1, (this.campaignIndex || 0) + 1);
+        this._openBriefing(next);
+      });
+    }
+    if ($("btn-ops")) {
+      $("btn-ops").addEventListener("click", (e) => {
+        e.preventDefault();
+        this._leaveToMenu();
+      });
+    }
+    if ($("campaign-list")) {
+      $("campaign-list").addEventListener("click", (e) => {
+        const row = e.target.closest("[data-mission]");
+        if (!row || row.disabled) return;
+        e.preventDefault();
+        this._openBriefing(Number(row.dataset.mission));
+      });
+    }
+    if ($("btn-deploy")) {
+      $("btn-deploy").addEventListener("click", (e) => {
+        e.preventDefault();
+        this._deployCampaign(this.campaignIndex);
+      });
+    }
+    if ($("btn-brief-back")) {
+      $("btn-brief-back").addEventListener("click", (e) => {
+        e.preventDefault();
+        this._closeBriefing();
+      });
+    }
     $("btn-resume").addEventListener("click", (e) => {
       e.preventDefault();
       this._resume();
@@ -2310,7 +2493,16 @@ class Game {
         if (e.repeat) return;
         if (e.target && (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA")) return;
         e.preventDefault();
+        if ($("briefing") && !$("briefing").classList.contains("hidden")) {
+          this._closeBriefing();
+          return;
+        }
         this._leaveToMenu();
+        return;
+      }
+      if (e.code === "Escape" && $("briefing") && !$("briefing").classList.contains("hidden")) {
+        e.preventDefault();
+        this._closeBriefing();
         return;
       }
       if (e.code === "Escape" && this.inSettings) {
@@ -2328,7 +2520,7 @@ class Game {
       if (e.code === "Tab") $("scoreboard").classList.add("hidden");
     });
     addEventListener("mousedown", (e) => {
-      const ui = e.target.closest("button, input, #shop, #menu, #match-over, #paused, #scoreboard, #settings");
+      const ui = e.target.closest("button, input, #shop, #menu, #match-over, #paused, #scoreboard, #settings, #briefing");
       if (e.button === 0) this.mouseDown = !ui && !this.inShop && !this.inSettings;
       if (e.button === 2) {
         e.preventDefault();
@@ -2520,6 +2712,7 @@ class Game {
     this.dragging = false;
     this._hideAdsUi();
     if (this.inSettings) this._closeSettings();
+    this._closeBriefing();
     if (document.exitPointerLock) document.exitPointerLock();
 
     if (this.online && this.net) this.net.leaveRoom();
@@ -2540,8 +2733,11 @@ class Game {
     if ($("match-over")) $("match-over").classList.add("hidden");
     if ($("scoreboard")) $("scoreboard").classList.add("hidden");
     if ($("room-chip")) $("room-chip").classList.add("hidden");
+    this.campaignActive = false;
+    this.campaignMission = null;
     if (menu) menu.classList.remove("hidden");
     this._refreshCareerUI();
+    this._renderCampaignList();
     this._refreshMannequin();
     this._bootLobby();
   }
@@ -2624,6 +2820,14 @@ class Game {
         this.mode = MODES[d.modeId];
       }
       if (d.wantTeam === 0 || d.wantTeam === 1) this.wantTeam = d.wantTeam;
+      if (d.playMode === "campaign" || d.playMode === "local") this.playMode = d.playMode;
+      if (d.campaign && typeof d.campaign === "object") {
+        const unlocked = Math.max(0, Math.min(CAMPAIGN.length, Math.floor(Number(d.campaign.unlocked) || 0)));
+        const done = Array.isArray(d.campaign.done) ? d.campaign.done.filter((id) => typeof id === "string") : [];
+        this.campaignSave = { unlocked, done };
+        const cur = Math.floor(Number(d.campaign.current) || 0);
+        this.campaignIndex = Math.max(0, Math.min(CAMPAIGN.length - 1, cur));
+      }
       if (d.stats && typeof d.stats === "object") {
         this.stats = {
           kills: Math.max(0, Math.floor(Number(d.stats.kills) || 0)),
@@ -2651,6 +2855,12 @@ class Game {
           diffId: this.diffId,
           modeId: this.modeId,
           wantTeam: this.wantTeam,
+          playMode: this.playMode === "campaign" ? "campaign" : "local",
+          campaign: {
+            unlocked: (this.campaignSave && this.campaignSave.unlocked) || 0,
+            done: (this.campaignSave && this.campaignSave.done) || [],
+            current: this.campaignIndex || 0,
+          },
           stats: this.stats || { kills: 0, deaths: 0, wins: 0, matches: 0 },
         })
       );
@@ -2678,13 +2888,20 @@ class Game {
     this._setGame(this.modeId);
     this._setWantTeam(this.wantTeam);
     this._applyingProgress = false;
+    if (this.playMode === "campaign") this._setPlayMode("campaign");
     this._refreshCareerUI();
+    this._renderCampaignList();
   }
 
   _refreshCareerUI() {
     if ($("menu-credits")) $("menu-credits").textContent = "¢ " + this.credits;
     if ($("menu-kd")) $("menu-kd").textContent = (this.stats.kills || 0) + "–" + (this.stats.deaths || 0);
     if ($("menu-wins")) $("menu-wins").textContent = String(this.stats.wins || 0);
+    if ($("menu-ops")) {
+      const unlocked = (this.campaignSave && this.campaignSave.unlocked) || 0;
+      const cleared = Math.min(CAMPAIGN.length, unlocked);
+      $("menu-ops").textContent = cleared + " / " + CAMPAIGN.length;
+    }
     if ($("menu-guns")) {
       const names = WEAPON_ORDER.filter((id) => this.owned[id]).map((id) => {
         const n = (WEAPONS[id] && WEAPONS[id].name) || id;
@@ -2695,6 +2912,11 @@ class Game {
   }
 
   _settleCareer() {
+    if (this.campaignActive) {
+      this._matchOpen = false;
+      this._saveProgress();
+      return;
+    }
     if (this._matchOpen && this.player) {
       this._matchOpen = false;
       const ranked = this._ranked();
@@ -3254,6 +3476,7 @@ class Game {
         }
         this._banner(TEAMS[f.team].name + " CAPTURE " + this.teamScore[f.team]);
         this._objFeed(f.name + " captured for " + TEAMS[f.team].name);
+        this._checkCampaign();
       }
     }
   }
@@ -3276,6 +3499,7 @@ class Game {
       while (this._hillAcc >= 1) {
         this._hillAcc -= 1;
         this.teamScore[this._hillHold] += 1;
+        this._checkCampaign();
       }
     } else {
       this._hillAcc = 0;
@@ -3362,13 +3586,213 @@ class Game {
   }
 
   _setMode(online) {
-    this.online = !!online;
-    if ($("mode-local")) $("mode-local").classList.toggle("on", !this.online);
-    if ($("mode-online")) $("mode-online").classList.toggle("on", this.online);
-    if ($("menu-eyebrow")) $("menu-eyebrow").textContent = this.online ? "ONLINE DEATHMATCH" : "LOCAL MATCH";
-    if ($("btn-start")) $("btn-start").textContent = this.online ? "CREATE ROOM" : "PLAY";
+    this._setPlayMode(online ? "online" : "local");
+  }
+
+  _setPlayMode(mode) {
+    const next = mode === "online" ? "online" : mode === "campaign" ? "campaign" : "local";
+    this.playMode = next;
+    this.online = next === "online";
+    if (next !== "campaign") this._closeBriefing();
+    if ($("mode-local")) $("mode-local").classList.toggle("on", next === "local");
+    if ($("mode-campaign")) $("mode-campaign").classList.toggle("on", next === "campaign");
+    if ($("mode-online")) $("mode-online").classList.toggle("on", next === "online");
+    if ($("lobby-panel")) $("lobby-panel").classList.toggle("hidden", next === "campaign");
+    if ($("campaign-panel")) $("campaign-panel").classList.toggle("hidden", next !== "campaign");
+    if ($("skirmish-opts")) $("skirmish-opts").classList.toggle("hidden", next === "campaign");
+    if ($("menu-eyebrow")) {
+      $("menu-eyebrow").textContent =
+        next === "online" ? "ONLINE DEATHMATCH" : next === "campaign" ? "OPERATION NEXUS" : "LOCAL MATCH";
+    }
+    if ($("btn-start")) {
+      $("btn-start").textContent = next === "online" ? "CREATE ROOM" : next === "campaign" ? "DEPLOY" : "PLAY";
+    }
     this._syncTeamPick();
+    if (next === "campaign") this._renderCampaignList();
     if (!this.running) this._bootLobby();
+    this._saveProgress();
+  }
+
+  _campaignUnlocked(i) {
+    return i >= 0 && i < CAMPAIGN.length && i <= ((this.campaignSave && this.campaignSave.unlocked) || 0);
+  }
+
+  _renderCampaignList() {
+    const el = $("campaign-list");
+    if (!el) return;
+    el.replaceChildren();
+    const unlocked = (this.campaignSave && this.campaignSave.unlocked) || 0;
+    const done = new Set((this.campaignSave && this.campaignSave.done) || []);
+    CAMPAIGN.forEach((m, i) => {
+      const open = i <= unlocked;
+      const row = document.createElement("button");
+      row.type = "button";
+      row.className = "camp-row" + (done.has(m.id) ? " done" : "") + (i === this.campaignIndex ? " current" : "");
+      row.dataset.mission = String(i);
+      row.disabled = !open;
+      const num = document.createElement("span");
+      num.className = "camp-num";
+      num.textContent = String(i + 1).padStart(2, "0");
+      const meta = document.createElement("span");
+      meta.className = "camp-meta";
+      const title = document.createElement("b");
+      title.textContent = m.title;
+      const info = document.createElement("i");
+      const map = (MAPS[m.map] && MAPS[m.map].name) || m.map;
+      const diff = (DIFFICULTY[m.diff] && DIFFICULTY[m.diff].name) || "";
+      info.textContent = [map, (MODES[m.mode] && MODES[m.mode].short) || "", diff, campaignGoal(m)].filter(Boolean).join(" · ");
+      meta.append(title, info);
+      const go = document.createElement("span");
+      go.className = "camp-go";
+      go.textContent = !open ? "LOCKED" : done.has(m.id) ? "REPLAY" : i === unlocked ? "NEXT" : "DEPLOY";
+      row.append(num, meta, go);
+      el.appendChild(row);
+    });
+  }
+
+  _openBriefing(index) {
+    const i = Math.max(0, Math.min(CAMPAIGN.length - 1, Number(index) || 0));
+    if (!this._campaignUnlocked(i)) return;
+    this.campaignIndex = i;
+    const m = CAMPAIGN[i];
+    this._saveProgress();
+    this._renderCampaignList();
+    if ($("brief-op")) $("brief-op").textContent = "OPERATION NEXUS · MISSION " + String(i + 1).padStart(2, "0");
+    if ($("brief-title")) $("brief-title").textContent = m.title;
+    if ($("brief-story")) $("brief-story").textContent = m.story;
+    if ($("brief-obj")) $("brief-obj").textContent = "OBJECTIVE · " + campaignGoal(m);
+    const map = (MAPS[m.map] && MAPS[m.map].name) || "";
+    const diff = (DIFFICULTY[m.diff] && DIFFICULTY[m.diff].name) || "";
+    const mode = (MODES[m.mode] && MODES[m.mode].short) || "";
+    const extra = m.lives ? " · " + m.lives + " LIVES" : "";
+    if ($("brief-meta")) $("brief-meta").textContent = [map, mode, diff, fmtTime(m.time)].join(" · ") + extra;
+    if ($("briefing")) $("briefing").classList.remove("hidden");
+  }
+
+  _closeBriefing() {
+    if ($("briefing")) $("briefing").classList.add("hidden");
+  }
+
+  _deployCampaign(index) {
+    const i = Math.max(0, Math.min(CAMPAIGN.length - 1, index == null ? this.campaignIndex : Number(index)));
+    if (!this._campaignUnlocked(i)) return;
+    const m = CAMPAIGN[i];
+    this.campaignIndex = i;
+    this._closeBriefing();
+    if ($("match-over")) $("match-over").classList.add("hidden");
+    this.startMatch({
+      campaign: true,
+      campaignIndex: i,
+      map: m.map,
+      mode: m.mode,
+      diff: m.diff,
+      bots: m.bots,
+    });
+  }
+
+  _campaignProgress() {
+    const m = this.campaignMission;
+    const p = this.player;
+    if (!m || !p) return { cur: 0, need: 1, label: "" };
+    if (m.win === "kills" || m.win === "lead") {
+      return { cur: p.kills || 0, need: m.target, label: "FRAGS" };
+    }
+    if (m.mode === "ctf") {
+      return { cur: this.teamScore[p.team] || 0, need: m.target, label: "CAPTURES" };
+    }
+    if (m.mode === "koth") {
+      return { cur: this.teamScore[p.team] || 0, need: m.target, label: "HILL" };
+    }
+    return { cur: this.teamScore[p.team] || 0, need: m.target, label: "TEAM" };
+  }
+
+  _campaignObjectiveMet() {
+    const m = this.campaignMission;
+    const p = this.player;
+    if (!m || !p) return false;
+    if (m.win === "kills") return (p.kills || 0) >= m.target;
+    if (m.win === "lead") {
+      const ranked = this._ranked();
+      return (p.kills || 0) >= m.target && ranked[0] && ranked[0].isPlayer;
+    }
+    if (m.win === "survive") {
+      const ranked = this._ranked();
+      if (this._isTeamMode()) return (this.teamScore[p.team] || 0) >= (this.teamScore[1 - p.team] || 0);
+      return ranked[0] && ranked[0].isPlayer;
+    }
+    return (this.teamScore[p.team] || 0) >= m.target;
+  }
+
+  _checkCampaign() {
+    if (!this.campaignActive || this.matchOver || this.inShop) return;
+    if (this.campaignMission && this.campaignMission.win === "survive") return;
+    if (this._campaignObjectiveMet()) this._endCampaign(true);
+  }
+
+  _resolveCampaignTime() {
+    if (!this.campaignActive || this.matchOver) return;
+    const m = this.campaignMission;
+    if (m && m.win === "survive") {
+      this._endCampaign(this._campaignObjectiveMet());
+      return;
+    }
+    this._endCampaign(this._campaignObjectiveMet());
+  }
+
+  _endCampaign(won) {
+    if (this.matchOver) return;
+    this.matchOver = true;
+    this.running = true;
+    this._matchOpen = false;
+    this.inShop = false;
+    this.rmbDown = false;
+    this._hideAdsUi();
+    if (document.exitPointerLock) document.exitPointerLock();
+    if ($("shop")) $("shop").classList.add("hidden");
+    if ($("paused")) $("paused").classList.add("hidden");
+    if ($("death-screen")) $("death-screen").classList.add("hidden");
+    const m = this.campaignMission || CAMPAIGN[this.campaignIndex] || CAMPAIGN[0];
+    if (!this.campaignSave) this.campaignSave = { unlocked: 0, done: [] };
+    if (!Array.isArray(this.campaignSave.done)) this.campaignSave.done = [];
+    const bits = [];
+    if (won) {
+      this.stats.wins = (this.stats.wins || 0) + 1;
+      this.credits += m.reward || 0;
+      if (m.gun && WEAPONS[m.gun]) this.owned[m.gun] = true;
+      if (!this.campaignSave.done) this.campaignSave.done = [];
+      if (m.id && !this.campaignSave.done.includes(m.id)) this.campaignSave.done.push(m.id);
+      this.campaignSave.unlocked = Math.max(this.campaignSave.unlocked || 0, this.campaignIndex + 1);
+      bits.push("+" + (m.reward || 0) + " CREDITS");
+      if (m.gun && WEAPONS[m.gun]) bits.push("UNLOCKED " + WEAPONS[m.gun].name.toUpperCase());
+      if (this.campaignIndex >= CAMPAIGN.length - 1) bits.push("OPERATION COMPLETE");
+    }
+    this._saveProgress();
+    this._renderCampaignList();
+    if ($("match-over")) {
+      $("match-over").classList.remove("hidden");
+      $("match-over").classList.toggle("fail", !won);
+    }
+    if ($("over-eyebrow")) $("over-eyebrow").textContent = won ? "MISSION COMPLETE" : "MISSION FAILED";
+    if ($("winner-name")) $("winner-name").textContent = m.title;
+    if ($("winner-sub")) {
+      $("winner-sub").textContent = won
+        ? bits.join(" · ") || "objective complete"
+        : "The op is still live. Retry when you are ready.";
+    }
+    const ranked = this._ranked();
+    if ($("final-board")) {
+      $("final-board").innerHTML = ranked
+        .slice(0, 9)
+        .map((f, i) => `${i + 1}. ${f.name}  ${f.kills}–${f.deaths}`)
+        .join("<br>");
+    }
+    if ($("btn-again")) $("btn-again").textContent = "RETRY";
+    const hasNext = won && this.campaignIndex < CAMPAIGN.length - 1 && this._campaignUnlocked(this.campaignIndex + 1);
+    if ($("btn-next-mission")) $("btn-next-mission").classList.toggle("hidden", !hasNext);
+    if ($("btn-ops")) $("btn-ops").classList.remove("hidden");
+    try {
+      if (won) this.audio.win();
+    } catch (_) {}
   }
 
   _startLobbyWatch() {
@@ -3457,6 +3881,7 @@ class Game {
     const code = ($("room-code") && $("room-code").value || "").trim();
     if (!code) {
       if (this.online) this._createRoom();
+      else if (this.playMode === "campaign") this._openBriefing(this.campaignIndex);
       else this.startMatch();
       return;
     }
@@ -3743,6 +4168,21 @@ class Game {
       const keepOnline = !!(opts.keepOnline || opts.online);
       this.online = keepOnline || this.online && !!opts.online;
       if (opts.online) this.online = true;
+      if (opts.campaign) {
+        this.online = false;
+        this.playMode = "campaign";
+        this.campaignActive = true;
+        this.campaignIndex = opts.campaignIndex || 0;
+        this.campaignMission = CAMPAIGN[this.campaignIndex] || CAMPAIGN[0];
+        if (this.campaignMission.team === 0 || this.campaignMission.team === 1) {
+          this.wantTeam = this.campaignMission.team;
+        }
+        this.campaignLives = this.campaignMission.lives || 0;
+      } else {
+        this.campaignActive = false;
+        this.campaignMission = null;
+        this.campaignLives = 0;
+      }
       if (opts.host != null) this.net.host = !!opts.host;
       this.botCount = opts.bots != null ? opts.bots : parseInt($("bots").value, 10);
       if (opts.diff && DIFFICULTY[opts.diff]) this._setDifficulty(opts.diff);
@@ -3761,7 +4201,7 @@ class Game {
       this.paused = false;
       this.time = 0;
       this.round = 1;
-      this.roundLeft = CFG.roundTime;
+      this.roundLeft = this.campaignActive && this.campaignMission ? this.campaignMission.time : CFG.roundTime;
       this.shopLeft = 0;
       this.credits = Math.max(this.credits, 0);
       if (!this.owned || typeof this.owned !== "object") this.owned = { rifle: true };
@@ -3833,7 +4273,13 @@ class Game {
       this._setupObjectives();
       this._equipWeapon(startGun, true);
       if (this.online && this.net.connected) this.net.send({ t: "look", look: sanitizeLook(this.look) });
-      if ($("round-num")) $("round-num").textContent = "1";
+      if ($("round-label")) $("round-label").textContent = this.campaignActive ? "OP" : "ROUND";
+      if ($("round-num")) $("round-num").textContent = this.campaignActive ? String(this.campaignIndex + 1) : "1";
+      if ($("btn-again")) $("btn-again").textContent = this.campaignActive ? "RETRY" : "RUN IT BACK";
+      if ($("btn-next-mission")) $("btn-next-mission").classList.add("hidden");
+      if ($("btn-ops")) $("btn-ops").classList.add("hidden");
+      if ($("over-eyebrow")) $("over-eyebrow").textContent = "MATCH COMPLETE";
+      if ($("match-over")) $("match-over").classList.remove("fail");
       if ($("credits-hud")) $("credits-hud").textContent = String(this.credits);
       const used = new Set();
       for (const f of this.fighters) {
@@ -3848,12 +4294,16 @@ class Game {
         this._banner("ROOM " + this.net.code);
       } else {
         $("room-chip").classList.add("hidden");
-        this._banner(
-          (this.mode ? this.mode.short + " · " : "") +
-            (MAPS[this.mapId] ? MAPS[this.mapId].name : "ARENA") +
-            " · " +
-            this.difficulty.name
-        );
+        if (this.campaignActive && this.campaignMission) {
+          this._banner(this.campaignMission.title + " · " + campaignGoal(this.campaignMission));
+        } else {
+          this._banner(
+            (this.mode ? this.mode.short + " · " : "") +
+              (MAPS[this.mapId] ? MAPS[this.mapId].name : "ARENA") +
+              " · " +
+              this.difficulty.name
+          );
+        }
       }
       try {
         this.audio.spawn();
@@ -4102,6 +4552,10 @@ class Game {
   }
 
   _openShop(fromNet = false) {
+    if (this.campaignActive) {
+      this._resolveCampaignTime();
+      return;
+    }
     if (this.inShop) return;
     this.inShop = true;
     this.shopLeft = CFG.shopTime;
@@ -4401,7 +4855,17 @@ class Game {
       this._saveProgress();
       $("death-screen").classList.remove("hidden");
       $("killed-by").textContent = attacker ? `eliminated by ${attacker.name}` : "eliminated";
+      if (this.campaignActive && this.campaignMission && this.campaignMission.lives > 0) {
+        this.campaignLives = Math.max(0, this.campaignLives - 1);
+        if (this.campaignLives <= 0) {
+          ent.respawnT = 99;
+          if ($("respawn-cd")) $("respawn-cd").textContent = "NO LIVES LEFT";
+          this._endCampaign(false);
+          return;
+        }
+      }
     }
+    this._checkCampaign();
   }
 
   _feed(attacker, victim, head) {
@@ -4431,6 +4895,11 @@ class Game {
       .join("<br>");
     this.audio.win();
     this._settleCareer();
+    if ($("btn-again")) $("btn-again").textContent = "RUN IT BACK";
+    if ($("btn-next-mission")) $("btn-next-mission").classList.add("hidden");
+    if ($("btn-ops")) $("btn-ops").classList.add("hidden");
+    if ($("over-eyebrow")) $("over-eyebrow").textContent = "MATCH COMPLETE";
+    if ($("match-over")) $("match-over").classList.remove("fail");
   }
 
   _tracer(ax, ay, az, bx, by, bz) {
@@ -4475,6 +4944,10 @@ class Game {
     this.time += dt;
     this.roundLeft -= dt;
     if (this.roundLeft <= 0) {
+      if (this.campaignActive) {
+        this._resolveCampaignTime();
+        return;
+      }
       this._openShop();
       return;
     }
@@ -4485,12 +4958,18 @@ class Game {
     for (const b of this.bots) this._updateBot(b, dt);
     this._separate();
     this._updateObjectives(dt);
+    this._checkCampaign();
     for (const f of this.fighters) {
       if (f.isRemote) continue;
       if (!f.alive) {
         f.respawnT -= dt;
         f.deathT += dt;
-        if (f.respawnT <= 0) this._spawn(f);
+        if (f.respawnT <= 0) {
+          if (this.campaignActive && f.isPlayer && this.campaignMission && this.campaignMission.lives > 0 && this.campaignLives <= 0) {
+            continue;
+          }
+          this._spawn(f);
+        }
       }
     }
     this._updateEffects(dt);
@@ -5070,7 +5549,12 @@ class Game {
       $("mode-name-hud").textContent = t;
     }
     if ($("obj-hud")) {
-      if (this.modeId === "ctf" && this.flags.length === 2) {
+      if (this.campaignActive && this.campaignMission) {
+        const g = this._campaignProgress();
+        const lives =
+          this.campaignMission.lives > 0 ? " · LIVES " + this.campaignLives : "";
+        $("obj-hud").textContent = g.label + " " + g.cur + " / " + g.need + lives;
+      } else if (this.modeId === "ctf" && this.flags.length === 2) {
         $("obj-hud").textContent =
           "A " + this._flagState(this.flags[0]) + "   ·   B " + this._flagState(this.flags[1]);
       } else if (this.modeId === "koth") {
@@ -5085,7 +5569,8 @@ class Game {
     const slow = this._hudAcc >= 0.1;
     if (slow) {
       this._hudAcc = 0;
-      if ($("round-num")) $("round-num").textContent = String(this.round);
+      if ($("round-label")) $("round-label").textContent = this.campaignActive ? "OP" : "ROUND";
+      if ($("round-num")) $("round-num").textContent = this.campaignActive ? String((this.campaignIndex || 0) + 1) : String(this.round);
       const ranked = this._ranked();
       $("lead-name").textContent = ranked[0] ? ranked[0].name : "—";
       $("lead-score").textContent = ranked[0] ? String(ranked[0].kills) : "0";

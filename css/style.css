@@ -634,7 +634,7 @@ canvas#view {
 #scoreboard tr.you td { color: var(--amber); }
 #scoreboard tr.dead td { opacity: 0.45; }
 
-#death-screen, #paused, #match-over, #menu {
+#death-screen, #paused, #match-over, #menu, #briefing {
   position: fixed;
   inset: 0;
   display: flex;
@@ -818,6 +818,7 @@ canvas#view {
   text-align: center;
   gap: 8px;
 }
+#match-over.fail h2 { color: var(--red); }
 #match-over h2 {
   font-size: 48px;
   letter-spacing: 0.12em;
@@ -830,6 +831,108 @@ canvas#view {
   color: var(--text);
   margin-bottom: 18px;
   line-height: 1.7;
+}
+#briefing {
+  background: rgba(4, 8, 14, 0.88);
+  z-index: 28;
+  pointer-events: auto;
+}
+.brief-card {
+  width: min(520px, 92%);
+  text-align: center;
+  padding: 28px 22px;
+  background: rgba(8, 12, 18, 0.92);
+  border: 1px solid var(--line);
+}
+.brief-card h2 {
+  font-size: clamp(28px, 5vw, 44px);
+  letter-spacing: 0.1em;
+  color: var(--amber);
+  margin: 8px 0 16px;
+}
+#brief-story {
+  color: var(--muted);
+  line-height: 1.55;
+  margin-bottom: 18px;
+}
+#brief-obj {
+  font-family: var(--mono);
+  letter-spacing: 0.16em;
+  color: var(--cyan);
+  margin-bottom: 8px;
+}
+#brief-meta {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+  margin-bottom: 22px;
+}
+.brief-card button {
+  display: block;
+  width: 100%;
+  margin-top: 10px;
+}
+#campaign-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 320px;
+  overflow-y: auto;
+}
+.camp-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 10px;
+  align-items: center;
+  width: 100%;
+  text-align: left;
+  padding: 10px 12px;
+  background: rgba(8, 12, 18, 0.72);
+  border: 1px solid var(--line);
+  color: var(--text);
+}
+.camp-row:hover:not(:disabled) {
+  background: rgba(92, 225, 255, 0.16);
+}
+.camp-row:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.camp-row.done {
+  border-color: rgba(92, 225, 255, 0.45);
+}
+.camp-row.current {
+  background: rgba(255, 179, 71, 0.12);
+}
+.camp-num {
+  font-family: var(--mono);
+  color: var(--cyan);
+  letter-spacing: 0.16em;
+  min-width: 2.2em;
+}
+.camp-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.camp-meta b {
+  font-size: 12px;
+  letter-spacing: 0.1em;
+}
+.camp-meta i {
+  font-style: normal;
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--muted);
+  letter-spacing: 0.06em;
+}
+.camp-go {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  color: var(--amber);
 }
 
 button {
@@ -878,9 +981,9 @@ button:hover { background: rgba(92, 225, 255, 0.22); }
 }
 .career-bar {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 8px;
-  width: min(560px, 94%);
+  width: min(640px, 96%);
   margin: 0 auto 22px;
 }
 .career-bar > div {
@@ -906,10 +1009,10 @@ button:hover { background: rgba(92, 225, 255, 0.22); }
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-@media (max-width: 520px) {
+@media (max-width: 640px) {
   .career-bar { grid-template-columns: 1fr 1fr; }
 }
-#menu button, #menu input, #paused button, #match-over button {
+#menu button, #menu input, #paused button, #match-over button, #briefing button {
   pointer-events: auto;
   position: relative;
   z-index: 3;
