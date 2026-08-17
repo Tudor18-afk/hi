@@ -134,6 +134,9 @@ const MAPS = {
   warehouse: { id: "warehouse", name: "SUNSET RANGE" },
   yard: { id: "yard", name: "PINE RIDGE" },
   labs: { id: "labs", name: "HARBOR QUAY" },
+  market: { id: "market", name: "NIGHT BAZAAR" },
+  vault: { id: "vault", name: "GOLD VAULT" },
+  clinic: { id: "clinic", name: "RED CLINIC" },
 };
 
 const MODES = {
@@ -145,129 +148,132 @@ const MODES = {
 
 const CAMPAIGN = [
   {
-    id: "range",
-    title: "RANGE FIRE",
-    story: "Command wants a pulse check. Walk Sunset Range and put eight hostiles down. No excuses.",
-    map: "warehouse",
+    id: "v2-market",
+    title: "GHOST MARKET",
+    story: "Helix Crew is moving payroll through Night Bazaar. Steal three cash bags and dump them at the yellow extract. You do not need a body count — you need the money.",
+    map: "market",
     mode: "ffa",
     diff: "easy",
     bots: 4,
-    time: 90,
-    win: "kills",
-    target: 8,
-    lives: 0,
-    reward: 200,
-    gun: "smg",
-  },
-  {
-    id: "contact",
-    title: "FIRST CONTACT",
-    story: "Bravo slipped a squad onto the range. You run ALPHA. Put them in the dirt — twelve team frags.",
-    map: "warehouse",
-    mode: "tdm",
-    diff: "easy",
-    bots: 6,
     time: 120,
-    win: "score",
-    target: 12,
-    team: 0,
+    win: "steal",
+    target: 3,
     lives: 0,
-    reward: 350,
+    reward: 250,
+    gun: "smg",
+    hostage: null,
   },
   {
-    id: "ridge",
-    title: "RIDGE HUNT",
-    story: "Pine Ridge went dark. Ten confirmed kills, and you finish first. Come back with the lead.",
-    map: "yard",
+    id: "v2-ledger",
+    title: "DESERT LEDGER",
+    story: "A Helix bookkeeper stashed the ledger in a case on Sunset Range. Grab it and walk it to extract before their shooters close the sand.",
+    map: "warehouse",
     mode: "ffa",
-    diff: "normal",
+    diff: "easy",
     bots: 5,
     time: 100,
-    win: "lead",
-    target: 10,
+    win: "steal",
+    target: 1,
     lives: 0,
     reward: 300,
   },
   {
-    id: "hill",
-    title: "HOLD THE RING",
-    story: "The gold ring on the ridge is the only high ground that matters. Hold it until ALPHA hits 25.",
+    id: "v2-ridge",
+    title: "RIDGE WITNESS",
+    story: "LIN saw the Helix drop and they have her on Pine Ridge. Walk up, get her on her feet, and escort her to the yellow pad. If she dies, the op dies.",
     map: "yard",
-    mode: "koth",
+    mode: "ffa",
     diff: "normal",
-    bots: 6,
-    time: 110,
-    win: "score",
-    target: 25,
-    team: 0,
+    bots: 5,
+    time: 130,
+    win: "rescue",
+    target: 1,
     lives: 0,
     reward: 400,
+    hostage: "LIN",
+  },
+  {
+    id: "v2-quay",
+    title: "QUAY PAYROLL",
+    story: "Four more bags hit Harbor Quay at dusk. Steal every crate and bank them at extract. Helix shooters will try to keep their money.",
+    map: "labs",
+    mode: "ffa",
+    diff: "normal",
+    bots: 6,
+    time: 140,
+    win: "steal",
+    target: 4,
+    lives: 0,
+    reward: 450,
     gun: "shotgun",
   },
   {
-    id: "quay",
-    title: "QUAY PUSH",
-    story: "Harbor Quay is Bravo's dock. Take ALPHA in and rack fifteen team frags.",
-    map: "labs",
-    mode: "tdm",
-    diff: "hard",
-    bots: 6,
-    time: 130,
-    win: "score",
-    target: 15,
-    team: 0,
-    lives: 0,
-    reward: 450,
-  },
-  {
-    id: "colors",
-    title: "STEAL THEIR COLORS",
-    story: "Bravo's flag sits on the quay. Two captures. Don't die with it in your hands.",
-    map: "labs",
-    mode: "ctf",
+    id: "v2-vault",
+    title: "GOLD ROOM",
+    story: "The Gold Vault is where Helix parks the real take. Lift five gold crates and run them to extract. Quiet is optional. The gold is not.",
+    map: "vault",
+    mode: "ffa",
     diff: "hard",
     bots: 6,
     time: 150,
-    win: "score",
-    target: 2,
-    team: 0,
-    lives: 6,
-    reward: 550,
-    gun: "sniper",
+    win: "steal",
+    target: 5,
+    lives: 5,
+    reward: 600,
   },
   {
-    id: "veterans",
-    title: "VETERAN SWEEP",
-    story: "The veterans came back to Sunset Range. Twelve frags and you finish first, or you don't finish.",
-    map: "warehouse",
+    id: "v2-clinic",
+    title: "WHITE WING",
+    story: "They stuffed DOC REEVES in Red Clinic to keep him from talking. Free him and walk him out. He cannot take a firefight — cover him.",
+    map: "clinic",
+    mode: "ffa",
+    diff: "hard",
+    bots: 6,
+    time: 140,
+    win: "rescue",
+    target: 1,
+    lives: 5,
+    reward: 650,
+    gun: "sniper",
+    hostage: "DOC REEVES",
+  },
+  {
+    id: "v2-double",
+    title: "DOUBLE CROSS",
+    story: "Night Bazaar again. A courier is zip-tied behind the stalls and two last bags are on the tables. Steal both, save the courier, extract together.",
+    map: "market",
     mode: "ffa",
     diff: "hard",
     bots: 7,
-    time: 120,
-    win: "lead",
-    target: 12,
+    time: 160,
+    win: "both",
+    target: 2,
     lives: 5,
-    reward: 700,
+    reward: 800,
+    hostage: "COURIER",
   },
   {
-    id: "last",
-    title: "LAST LIGHT",
-    story: "One last push on the quay. Insane odds. Twenty ALPHA frags. Command is watching.",
-    map: "labs",
-    mode: "tdm",
+    id: "v2-mara",
+    title: "GET MARA",
+    story: "Mara is in the vault. Helix knows you are coming. Pull her out alive. That is the whole job.",
+    map: "vault",
+    mode: "ffa",
     diff: "insane",
     bots: 8,
     time: 150,
-    win: "score",
-    target: 20,
-    team: 0,
+    win: "rescue",
+    target: 1,
     lives: 4,
-    reward: 1200,
+    reward: 1400,
+    hostage: "MARA",
   },
 ];
 
 function campaignGoal(m) {
   if (!m) return "COMPLETE THE OP";
+  if (m.win === "steal") return "STEAL " + m.target + " BAG" + (m.target === 1 ? "" : "S") + " · EXTRACT";
+  if (m.win === "rescue") return "SAVE " + (m.hostage || "THE HOSTAGE") + " · EXTRACT";
+  if (m.win === "both") return "STEAL " + m.target + " BAGS AND SAVE " + (m.hostage || "THE HOSTAGE");
   if (m.win === "kills") return m.target + " FRAGS";
   if (m.win === "lead") return m.target + " FRAGS AND FINISH FIRST";
   if (m.win === "survive") return "SURVIVE AND HOLD THE LEAD";
@@ -275,6 +281,15 @@ function campaignGoal(m) {
   if (m.mode === "koth") return "HOLD THE HILL TO " + m.target;
   return m.target + " TEAM FRAGS";
 }
+
+const STORY_LAYOUT = {
+  market: { extract: [0, 26], bags: [[-16, -12], [12, 5], [-7, 16], [18, -16], [2, 6], [-22, 4]], hostage: [22, -22] },
+  warehouse: { extract: [0, 24], bags: [[-10, -10], [12, 8], [-6, 16]], hostage: [22, -22] },
+  yard: { extract: [0, 24], bags: [[-14, 8], [12, -10]], hostage: [16, -22] },
+  labs: { extract: [0, 24], bags: [[-18, -8], [16, 10], [-8, 12], [20, -6], [6, 4]], hostage: [22, 20] },
+  vault: { extract: [0, 26], bags: [[-8, -8], [8, 8], [-4, 12], [6, -18], [0, -8], [18, 4]], hostage: [0, -22] },
+  clinic: { extract: [0, 26], bags: [[-10, 10], [10, -10]], hostage: [0, -24] },
+};
 
 const TEAMS = [
   { id: 0, name: "ALPHA", color: 0x3ec4ff },
@@ -915,6 +930,39 @@ function buildWorld(scene, mapId, renderer) {
       sunI: 2.35,
       beyond: 0x3a6a88,
     },
+    market: {
+      fog: 0x2a1832,
+      skyTop: 0x140c22,
+      skyBot: 0x3a2048,
+      floor: 0x4a3834,
+      ground: dockTex(),
+      hemi: [0xffc8a8, 0x281018, 1.12],
+      sun: 0xff7755,
+      sunI: 1.05,
+      beyond: 0x1c1018,
+    },
+    vault: {
+      fog: 0x2a2418,
+      skyTop: 0x16140e,
+      skyBot: 0x3a3424,
+      floor: 0xc4b48a,
+      ground: sandTex(),
+      hemi: [0xffe8b8, 0x3a3020, 1.28],
+      sun: 0xffd088,
+      sunI: 1.4,
+      beyond: 0x2a2214,
+    },
+    clinic: {
+      fog: 0xd8e0e4,
+      skyTop: 0xb4cce0,
+      skyBot: 0xf2ece8,
+      floor: 0xece8e0,
+      ground: dockTex(),
+      hemi: [0xfff8f4, 0xa8b4bc, 1.55],
+      sun: 0xfff2ea,
+      sunI: 2.05,
+      beyond: 0xc8d2d6,
+    },
   };
   const theme = themes[mapId] || themes.warehouse;
 
@@ -1170,6 +1218,68 @@ function buildWorld(scene, mapId, renderer) {
     makeBoxMesh(-22, 10.2, 8, 8.5, 0.35, 0.35, poleMat, root, false);
     makeBoxMesh(22, 10.2, -8, 8.5, 0.35, 0.35, poleMat, root, false);
     placeRock(-4, 0.5, 10, 1.2, 0.8, 1.4, rockMatB);
+  } else if (mapId === "market") {
+    const stall = new THREE.MeshStandardMaterial({ color: 0x6a3a28, roughness: 0.78, metalness: 0.08 });
+    const clothA = new THREE.MeshStandardMaterial({ color: 0xc45a2a, roughness: 0.7, metalness: 0.04 });
+    const clothB = new THREE.MeshStandardMaterial({ color: 0x3a6a9a, roughness: 0.7, metalness: 0.04 });
+    prop(-16, -8, 6.5, 2.4, 2.2, stall, true);
+    makeBoxMesh(-16, 2.45, -8, 6.8, 0.12, 2.8, clothA, root, false);
+    prop(16, 8, 6.5, 2.4, 2.2, stall, true);
+    makeBoxMesh(16, 2.45, 8, 6.8, 0.12, 2.8, clothB, root, false);
+    prop(-10, 12, 2.4, 7.2, 2.2, stall, true);
+    makeBoxMesh(-10, 2.45, 12, 2.8, 0.12, 7.4, clothB, root, false);
+    prop(10, -12, 2.4, 7.2, 2.2, stall, true);
+    makeBoxMesh(10, 2.45, -12, 2.8, 0.12, 7.4, clothA, root, false);
+    crateStack(-6, 0);
+    crateStack(6, 4);
+    crateStack(-20, 8);
+    crateStack(20, -6);
+    prop(0, -20, 8, 2.2, 1.6, stall, true);
+    const neonPink = new THREE.MeshStandardMaterial({ color: 0xff4d8a, emissive: 0xff4d8a, emissiveIntensity: 1.6, roughness: 0.35 });
+    const neonCyan = new THREE.MeshStandardMaterial({ color: 0x5ce1ff, emissive: 0x5ce1ff, emissiveIntensity: 1.5, roughness: 0.35 });
+    makeBoxMesh(-16, 3.2, -8, 6.5, 0.12, 0.18, neonPink, root, false);
+    makeBoxMesh(16, 3.2, 8, 6.5, 0.12, 0.18, neonCyan, root, false);
+    makeBoxMesh(-10, 3.2, 12, 0.18, 0.12, 7, neonCyan, root, false);
+    const p1 = new THREE.PointLight(0xff4d8a, 1.6, 16);
+    p1.position.set(-16, 3.4, -8);
+    root.add(p1);
+    const p2 = new THREE.PointLight(0x5ce1ff, 1.5, 16);
+    p2.position.set(16, 3.4, 8);
+    root.add(p2);
+  } else if (mapId === "vault") {
+    const gold = new THREE.MeshStandardMaterial({ color: 0xd4b44a, roughness: 0.32, metalness: 0.72, emissive: 0x6a4a10, emissiveIntensity: 0.25 });
+    const stone = new THREE.MeshStandardMaterial({ map: rtex, color: 0x8a8070, roughness: 0.82, metalness: 0.12 });
+    prop(-12, -14, 18, 2.6, 3.4, stone, true);
+    prop(12, 14, 18, 2.6, 3.4, stone, true);
+    prop(-14, 8, 2.6, 16, 3.4, stone, true);
+    prop(14, -8, 2.6, 16, 3.4, stone, true);
+    crateStack(-6, -6);
+    crateStack(6, 6);
+    crateStack(-8, 8);
+    crateStack(8, -8);
+    makeBoxMesh(-4, 0.45, 0, 1.4, 0.9, 0.9, gold, root, true);
+    makeBoxMesh(4, 0.45, 2, 1.4, 0.9, 0.9, gold, root, true);
+    makeBoxMesh(0, 0.45, -4, 1.4, 0.9, 0.9, gold, root, true);
+    makeBoxMesh(-2, 0.95, 0, 1.1, 0.7, 0.7, gold, root, true);
+    const vaultLite = new THREE.PointLight(0xffcc66, 1.4, 18);
+    vaultLite.position.set(0, 4.2, 0);
+    root.add(vaultLite);
+  } else if (mapId === "clinic") {
+    const white = new THREE.MeshStandardMaterial({ color: 0xe8e4dc, roughness: 0.7, metalness: 0.08 });
+    const red = new THREE.MeshStandardMaterial({ color: 0xb03030, roughness: 0.55, metalness: 0.1, emissive: 0x4a1010, emissiveIntensity: 0.35 });
+    prop(-18, 0, 3.0, 22, 3.2, white, true);
+    prop(18, 0, 3.0, 22, 3.2, white, true);
+    prop(0, -18, 14, 3.0, 3.2, white, true);
+    prop(0, 18, 14, 3.0, 3.2, white, true);
+    crateStack(-8, -8);
+    crateStack(8, 8);
+    prop(-8, 8, 3.4, 2.2, 1.4, white, true);
+    prop(8, -8, 3.4, 2.2, 1.4, white, true);
+    makeBoxMesh(0, 3.6, 0, 2.4, 0.22, 0.45, red, root, false);
+    makeBoxMesh(0, 3.6, 0, 0.45, 0.22, 2.4, red, root, false);
+    const clinicLite = new THREE.PointLight(0xffe8e0, 1.2, 20);
+    clinicLite.position.set(0, 4.5, 0);
+    root.add(clinicLite);
   } else {
     prop(-14, -14, 4.4, 4.4, 2.2, rockMat, true);
     prop(14, -14, 4.4, 4.4, 2.2, rockMat, true);
@@ -2168,6 +2278,14 @@ class Game {
     this.campaignIndex = 0;
     this.campaignMission = null;
     this.campaignLives = 0;
+    this.storyGroup = null;
+    this.storyBags = [];
+    this.carriedBag = null;
+    this.deposited = 0;
+    this.hostage = null;
+    this.extract = new THREE.Vector3();
+    this.carryView = null;
+    this._campaignFailReason = "";
     this.humans = [];
     this.net = new Net();
     this.net.onEvent = (msg) => this._onNet(msg);
@@ -2736,6 +2854,7 @@ class Game {
     if ($("room-chip")) $("room-chip").classList.add("hidden");
     this.campaignActive = false;
     this.campaignMission = null;
+    this._clearStoryMission();
     if (menu) menu.classList.remove("hidden");
     this._refreshCareerUI();
     this._renderCampaignList();
@@ -2823,11 +2942,16 @@ class Game {
       if (d.wantTeam === 0 || d.wantTeam === 1) this.wantTeam = d.wantTeam;
       if (d.playMode === "campaign" || d.playMode === "local") this.playMode = d.playMode;
       if (d.campaign && typeof d.campaign === "object") {
-        const unlocked = Math.max(0, Math.min(CAMPAIGN.length, Math.floor(Number(d.campaign.unlocked) || 0)));
-        const done = Array.isArray(d.campaign.done) ? d.campaign.done.filter((id) => typeof id === "string") : [];
-        this.campaignSave = { unlocked, done };
-        const cur = Math.floor(Number(d.campaign.current) || 0);
-        this.campaignIndex = Math.max(0, Math.min(CAMPAIGN.length - 1, cur));
+        if (d.campaign.version !== 2) {
+          this.campaignSave = { unlocked: 0, done: [], version: 2 };
+          this.campaignIndex = 0;
+        } else {
+          const unlocked = Math.max(0, Math.min(CAMPAIGN.length, Math.floor(Number(d.campaign.unlocked) || 0)));
+          const done = Array.isArray(d.campaign.done) ? d.campaign.done.filter((id) => typeof id === "string") : [];
+          this.campaignSave = { unlocked, done, version: 2 };
+          const cur = Math.floor(Number(d.campaign.current) || 0);
+          this.campaignIndex = Math.max(0, Math.min(CAMPAIGN.length - 1, cur));
+        }
       }
       if (d.stats && typeof d.stats === "object") {
         this.stats = {
@@ -2858,6 +2982,7 @@ class Game {
           wantTeam: this.wantTeam,
           playMode: this.playMode === "campaign" ? "campaign" : "local",
           campaign: {
+            version: 2,
             unlocked: (this.campaignSave && this.campaignSave.unlocked) || 0,
             done: (this.campaignSave && this.campaignSave.done) || [],
             current: this.campaignIndex || 0,
@@ -2960,6 +3085,7 @@ class Game {
     this.viewmodel.add(this.viewArms);
     if (this.gunRoot) this.viewmodel.add(this.gunRoot);
     if (this.muzzleFlash) this.viewmodel.add(this.muzzleFlash);
+    if (this.carryView) this.viewmodel.add(this.carryView);
     this._poseViewHands(this.weaponId);
   }
 
@@ -3297,6 +3423,7 @@ class Game {
     this.hillRing = built.hillRing || null;
     this.padA = built.padA || null;
     this.padB = built.padB || null;
+    this._clearStoryMission();
     if (this.flagGroup) {
       this.scene.remove(this.flagGroup);
       this.flagGroup = null;
@@ -3397,6 +3524,293 @@ class Game {
     this.teamScore = [0, 0];
     this._hillAcc = 0;
     this._hillHold = -1;
+  }
+
+  _storyWorld(xz) {
+    const x = xz && xz[0] != null ? xz[0] : 0;
+    const z = xz && xz[1] != null ? xz[1] : 0;
+    if (!this.nav) return { x, z };
+    const cell = this.nav.nearest(x, z);
+    return this.nav.world(cell[0], cell[1]);
+  }
+
+  _makeBagMesh() {
+    const g = new THREE.Group();
+    const body = new THREE.Mesh(
+      new THREE.BoxGeometry(0.42, 0.32, 0.28),
+      new THREE.MeshStandardMaterial({
+        color: 0xc9a227,
+        emissive: 0x664400,
+        emissiveIntensity: 0.4,
+        metalness: 0.55,
+        roughness: 0.35,
+      })
+    );
+    body.castShadow = true;
+    g.add(body);
+    const strap = new THREE.Mesh(
+      new THREE.BoxGeometry(0.08, 0.22, 0.06),
+      new THREE.MeshStandardMaterial({ color: 0x2a2118, roughness: 0.8 })
+    );
+    strap.position.y = 0.22;
+    g.add(strap);
+    return g;
+  }
+
+  _setupStoryMission() {
+    this._clearStoryMission();
+    if (!this.campaignActive || !this.campaignMission) return;
+    const m = this.campaignMission;
+    const L = STORY_LAYOUT[this.mapId] || STORY_LAYOUT.warehouse;
+    this.storyGroup = new THREE.Group();
+    this.scene.add(this.storyGroup);
+
+    const ex = this._storyWorld(L.extract);
+    this.extract.set(ex.x, 0.04, ex.z);
+    const pad = new THREE.Mesh(
+      new THREE.CylinderGeometry(2.4, 2.4, 0.08, 28),
+      new THREE.MeshStandardMaterial({
+        color: 0xffd24a,
+        emissive: 0xffaa00,
+        emissiveIntensity: 0.75,
+        metalness: 0.3,
+        roughness: 0.4,
+      })
+    );
+    pad.position.copy(this.extract);
+    pad.receiveShadow = true;
+    this.storyGroup.add(pad);
+    const ring = new THREE.Mesh(
+      new THREE.TorusGeometry(2.45, 0.06, 8, 28),
+      new THREE.MeshBasicMaterial({ color: 0xffee88 })
+    );
+    ring.rotation.x = Math.PI / 2;
+    ring.position.copy(this.extract);
+    ring.position.y += 0.12;
+    this.storyGroup.add(ring);
+
+    const needBags = m.win === "steal" || m.win === "both" ? m.target : 0;
+    for (let i = 0; i < needBags && i < L.bags.length; i++) {
+      const p = this._storyWorld(L.bags[i]);
+      const bag = this._makeBagMesh();
+      bag.position.set(p.x, 0.22, p.z);
+      this.storyGroup.add(bag);
+      this.storyBags.push({ mesh: bag, pos: new THREE.Vector3(p.x, 0.22, p.z), taken: false });
+    }
+
+    if (this.viewmodel) {
+      this.carryView = this._makeBagMesh();
+      this.carryView.scale.setScalar(0.45);
+      this.carryView.position.set(0.22, -0.18, -0.28);
+      this.carryView.rotation.set(0.4, 0.6, 0.2);
+      this.carryView.visible = false;
+      this.viewmodel.add(this.carryView);
+    }
+
+    if (m.win === "rescue" || m.win === "both") {
+      const hp = this._storyWorld(L.hostage);
+      const h = this._makeFighter(m.hostage || "CIVILIAN", 0x7ad4ff, false);
+      h.isHostage = true;
+      h.isBot = false;
+      h.team = -1;
+      h.health = 160;
+      h.maxHealth = 160;
+      h.pos.set(hp.x, 0, hp.z);
+      h.yaw = 0;
+      h.freed = false;
+      h.extracted = false;
+      h.arch = { id: "civilian", speed: 1, acc: 1, range: 0, agr: 0, react: 1, fov: 2 };
+      h.look = sanitizeLook({
+        skin: 0xe8c4a0,
+        hair: "short",
+        hairColor: 0x2a1a12,
+        shirt: 0x3a6ea5,
+        pants: 0x2a2e32,
+        vest: false,
+        helmet: "none",
+        beard: "none",
+        iris: 0x3a4a6a,
+      });
+      h.lookKey = lookKey(h.look);
+      const rig = this._makeRig(h);
+      if (rig.gun) rig.gun.visible = false;
+      this.scene.add(rig.group);
+      h.rig = rig;
+      this.hostage = h;
+      this.humans.push(h);
+      this._rebuildFighters();
+      this._poseStoryActor(h, 0);
+    }
+  }
+
+  _clearStoryMission() {
+    if (this.carryView) {
+      if (this.carryView.parent) this.carryView.parent.remove(this.carryView);
+      this.carryView.traverse((o) => {
+        if (o.geometry) o.geometry.dispose();
+        if (o.material) {
+          if (Array.isArray(o.material)) o.material.forEach((mat) => mat.dispose());
+          else o.material.dispose();
+        }
+      });
+    }
+    this.carryView = null;
+    if (this.hostage) {
+      if (this.hostage.rig) this.scene.remove(this.hostage.rig.group);
+      this.humans = (this.humans || []).filter((h) => h !== this.hostage);
+      this.bots = (this.bots || []).filter((b) => b !== this.hostage);
+    }
+    this.hostage = null;
+    if (this.storyGroup) {
+      this.scene.remove(this.storyGroup);
+      this.storyGroup.traverse((o) => {
+        if (o.geometry) o.geometry.dispose();
+        if (o.material) {
+          if (Array.isArray(o.material)) o.material.forEach((mat) => mat.dispose());
+          else o.material.dispose();
+        }
+      });
+    }
+    this.storyGroup = null;
+    this.storyBags = [];
+    this.carriedBag = null;
+    this.deposited = 0;
+    this.extract.set(0, 0.04, 0);
+    this._campaignFailReason = "";
+    if (this.running) this._rebuildFighters();
+  }
+
+  _dropCarriedBag() {
+    if (this.carriedBag == null || !this.player) return;
+    const b = this.storyBags[this.carriedBag];
+    if (b) {
+      b.taken = false;
+      const p = this.player.pos;
+      const spot = this._storyWorld([p.x, p.z]);
+      b.pos.set(spot.x, 0.22, spot.z);
+      if (b.mesh) {
+        b.mesh.visible = true;
+        b.mesh.position.copy(b.pos);
+      }
+    }
+    this.carriedBag = null;
+    if (this.carryView) this.carryView.visible = false;
+  }
+
+  _updateStoryItems(dt) {
+    if (!this.campaignActive || this.matchOver || !this.player || !this.player.alive) return;
+    const m = this.campaignMission;
+    if (!m || (m.win !== "steal" && m.win !== "both")) return;
+    const px = this.player.pos.x;
+    const pz = this.player.pos.z;
+    if (this.carriedBag == null) {
+      for (let i = 0; i < this.storyBags.length; i++) {
+        const b = this.storyBags[i];
+        if (b.taken) continue;
+        const dx = px - b.pos.x;
+        const dz = pz - b.pos.z;
+        if (dx * dx + dz * dz < 1.7 * 1.7) {
+          b.taken = true;
+          this.carriedBag = i;
+          if (b.mesh) b.mesh.visible = false;
+          if (this.carryView) this.carryView.visible = true;
+          this._banner("CASH BAG — GET TO THE YELLOW EXTRACT");
+          break;
+        }
+      }
+    } else {
+      const dx = px - this.extract.x;
+      const dz = pz - this.extract.z;
+      if (dx * dx + dz * dz < 2.5 * 2.5) {
+        const b = this.storyBags[this.carriedBag];
+        if (b && b.mesh) b.mesh.visible = false;
+        this.deposited += 1;
+        this.carriedBag = null;
+        if (this.carryView) this.carryView.visible = false;
+        this._banner("SECURED  " + this.deposited + " / " + m.target);
+      }
+    }
+    this.storyBags.forEach((b, i) => {
+      if (!b.mesh || !b.mesh.visible) return;
+      b.mesh.rotation.y += dt * 1.4;
+      b.mesh.position.y = b.pos.y + Math.sin(this.time * 3 + i) * 0.06;
+    });
+  }
+
+  _poseStoryActor(ent, dt) {
+    const rig = ent && ent.rig;
+    if (!rig) return;
+    if (!ent.alive) {
+      const t = clamp(ent.deathT / 0.45, 0, 1);
+      rig.group.rotation.x = t * 1.2;
+      rig.group.position.set(ent.pos.x, ent.pos.y + 0.2 * (1 - t), ent.pos.z);
+      if (ent.deathT > 0.9) rig.group.visible = false;
+      return;
+    }
+    rig.group.visible = true;
+    rig.group.rotation.x = 0;
+    const spd = Math.hypot(ent.vel.x, ent.vel.z);
+    ent.walkPhase += dt * (spd > 0.4 ? 9 : 0);
+    if (rig.skinned) {
+      updateHumanAnim(rig, spd, dt);
+    } else if (rig.larm && rig.rarm) {
+      const swing = Math.sin(ent.walkPhase) * Math.min(1, spd / 4) * 0.7;
+      rig.larm.rotation.x = -swing * 0.5;
+      rig.rarm.rotation.x = swing * 0.35;
+      if (rig.lleg) rig.lleg.rotation.x = swing;
+      if (rig.rleg) rig.rleg.rotation.x = -swing;
+    }
+    rig.group.position.set(ent.pos.x, ent.pos.y, ent.pos.z);
+    rig.group.rotation.y = ent.yaw;
+    if (rig.hpFg) {
+      rig.hpFg.scale.x = clamp(ent.health / (ent.maxHealth || 100), 0.02, 1);
+      rig.hpFg.position.x = (rig.hpFg.scale.x - 1) * 0.39;
+    }
+    if (rig.hpGroup) rig.hpGroup.lookAt(this.camera.position);
+  }
+
+  _updateHostage(dt) {
+    const h = this.hostage;
+    if (!h || this.matchOver) return;
+    if (!h.alive) {
+      this._poseStoryActor(h, dt);
+      return;
+    }
+    let wx = 0;
+    let wz = 0;
+    let speed = 5.2;
+    if (!h.freed) {
+      if (this.player && this.player.alive) {
+        const dist = Math.hypot(this.player.pos.x - h.pos.x, this.player.pos.z - h.pos.z);
+        if (dist < 1.85) {
+          h.freed = true;
+          this._banner(((this.campaignMission && this.campaignMission.hostage) || "HOSTAGE") + " FREED — ESCORT TO EXTRACT");
+        }
+      }
+    } else if (!h.extracted) {
+      const ex = Math.hypot(this.extract.x - h.pos.x, this.extract.z - h.pos.z);
+      const withPlayer =
+        this.player && this.player.alive
+          ? Math.hypot(this.player.pos.x - h.pos.x, this.player.pos.z - h.pos.z)
+          : 99;
+      if (ex < 2.35 && withPlayer < 3.4) {
+        h.extracted = true;
+        h.pos.x = this.extract.x;
+        h.pos.z = this.extract.z;
+        this._banner("HOSTAGE EXTRACTED");
+      } else if (this.player && this.player.alive && withPlayer > 2.05) {
+        this._follow(h, this.player.pos.x, this.player.pos.z);
+        wx = h._wx || 0;
+        wz = h._wz || 0;
+        h.yaw = lerpAng(h.yaw, yawTo(h.pos.x, h.pos.z, this.player.pos.x, this.player.pos.z), 1 - Math.exp(-8 * dt));
+      }
+    }
+    if (h.extracted) {
+      wx = 0;
+      wz = 0;
+    }
+    this._moveWish(h, wx, wz, speed, dt);
+    this._poseStoryActor(h, dt);
   }
 
   _dropFlag(ent) {
@@ -3695,6 +4109,26 @@ class Game {
     const m = this.campaignMission;
     const p = this.player;
     if (!m || !p) return { cur: 0, need: 1, label: "" };
+    if (m.win === "steal") {
+      return { cur: this.deposited || 0, need: m.target, label: this.carriedBag != null ? "CARRYING · BAGS" : "BAGS" };
+    }
+    if (m.win === "rescue") {
+      const h = this.hostage;
+      const name = (m.hostage || "HOSTAGE").toUpperCase();
+      let label = name + " · HOLD";
+      if (h && h.extracted) label = name + " · OUT";
+      else if (h && h.freed) label = name + " · FOLLOW";
+      return { cur: h && h.extracted ? 1 : 0, need: 1, label };
+    }
+    if (m.win === "both") {
+      const h = this.hostage;
+      const bags = (this.deposited || 0) + "/" + m.target;
+      let host = m.hostage || "HOSTAGE";
+      if (h && h.extracted) host += " OUT";
+      else if (h && h.freed) host += " FOLLOW";
+      else host += " HOLD";
+      return { cur: this.deposited || 0, need: m.target, label: "BAGS " + bags + " · " + host };
+    }
     if (m.win === "kills" || m.win === "lead") {
       return { cur: p.kills || 0, need: m.target, label: "FRAGS" };
     }
@@ -3711,6 +4145,11 @@ class Game {
     const m = this.campaignMission;
     const p = this.player;
     if (!m || !p) return false;
+    if (m.win === "steal") return (this.deposited || 0) >= m.target;
+    if (m.win === "rescue") return !!(this.hostage && this.hostage.alive && this.hostage.extracted);
+    if (m.win === "both") {
+      return (this.deposited || 0) >= m.target && this.hostage && this.hostage.alive && this.hostage.extracted;
+    }
     if (m.win === "kills") return (p.kills || 0) >= m.target;
     if (m.win === "lead") {
       const ranked = this._ranked();
@@ -3778,7 +4217,7 @@ class Game {
     if ($("winner-sub")) {
       $("winner-sub").textContent = won
         ? bits.join(" · ") || "objective complete"
-        : "The op is still live. Retry when you are ready.";
+        : this._campaignFailReason || "The op is still live. Retry when you are ready.";
     }
     const ranked = this._ranked();
     if ($("final-board")) {
@@ -4284,10 +4723,11 @@ class Game {
       if ($("credits-hud")) $("credits-hud").textContent = String(this.credits);
       const used = new Set();
       for (const f of this.fighters) {
-        if (f.isRemote) continue;
+        if (f.isRemote || f.isHostage) continue;
         this._spawn(f, used);
         used.add(f.spawnIndex);
       }
+      this._setupStoryMission();
 
       if (this.online && this.net.code) {
         $("room-chip").classList.remove("hidden");
@@ -4383,6 +4823,7 @@ class Game {
   }
 
   _spawn(ent, used = new Set()) {
+    if (!ent || ent.isHostage) return;
     let best = 0;
     let bestScore = -1;
     let found = false;
@@ -4515,7 +4956,7 @@ class Game {
   }
 
   _ranked() {
-    return [...this.fighters].sort((a, b) => b.kills - a.kills || a.deaths - b.deaths);
+    return [...this.fighters].filter((f) => f && !f.isHostage).sort((a, b) => b.kills - a.kills || a.deaths - b.deaths);
   }
 
   _boardHtml() {
@@ -4676,7 +5117,9 @@ class Game {
     }
     for (const f of this.fighters) {
       if (!f.alive || f.id === ignoreId) continue;
+      if (f.isHostage && f.extracted) continue;
       const src = this._byId(ignoreId);
+      if (f.isHostage && src && src.isPlayer) continue;
       if (src && this._sameTeam(src, f)) continue;
       const by = f.pos.y + (f.crouching ? 0.72 : 1.08);
       const tb = raySphere(ox, oy, oz, dx, dy, dz, f.pos.x, by, f.pos.z, 0.36, best);
@@ -4766,6 +5209,7 @@ class Game {
 
   hurt(ent, dmg, attacker, head, hit, fromNet = false) {
     if (!ent || !ent.alive) return;
+    if (ent.isHostage && (ent.extracted || (attacker && attacker.isPlayer))) return;
     if (attacker && this._sameTeam(ent, attacker)) return;
     ent.health -= dmg;
     ent.lastHurtBy = attacker;
@@ -4849,8 +5293,15 @@ class Game {
       if (attacker.isPlayer) this._onPlayerKill(head);
     }
     this._dropFlag(ent);
+    if (ent.isPlayer) this._dropCarriedBag();
     this.audio.death();
     this._feed(attacker, ent, head);
+    if (ent.isHostage) {
+      ent.respawnT = 99;
+      this._campaignFailReason = (ent.name || "HOSTAGE") + " WAS KILLED";
+      this._endCampaign(false);
+      return;
+    }
     if (ent.isPlayer) {
       this.stats.deaths = (this.stats.deaths || 0) + 1;
       this._saveProgress();
@@ -4957,6 +5408,8 @@ class Game {
       if (h.isRemote) this._interpRemote(h, dt);
     }
     for (const b of this.bots) this._updateBot(b, dt);
+    this._updateStoryItems(dt);
+    this._updateHostage(dt);
     this._separate();
     this._updateObjectives(dt);
     this._checkCampaign();
@@ -4966,6 +5419,7 @@ class Game {
         f.respawnT -= dt;
         f.deathT += dt;
         if (f.respawnT <= 0) {
+          if (f.isHostage) continue;
           if (this.campaignActive && f.isPlayer && this.campaignMission && this.campaignMission.lives > 0 && this.campaignLives <= 0) {
             continue;
           }
@@ -5124,6 +5578,7 @@ class Game {
     const wx = fx * -iz + rx * ix;
     const wz = fz * -iz + rz * ix;
     let speed = p.crouching ? CFG.walk * 0.55 : sprint && iz < 0 ? CFG.sprint : CFG.walk;
+    if (this.carriedBag != null) speed *= 0.86;
     if (ads > 0.2) speed *= lerp(1, 0.72, ads);
     if (!p.grounded) speed *= 0.85;
     this._moveWish(p, wx, wz, speed, dt);
@@ -5246,6 +5701,7 @@ class Game {
     let bestScore = 1e9;
     for (const o of this.fighters) {
       if (o === bot || !o.alive) continue;
+      if (o.isHostage && o.extracted) continue;
       if (this._sameTeam(bot, o)) continue;
       const dist = bot.pos.distanceTo(o.pos);
       if (dist > 48) continue;
@@ -5261,6 +5717,7 @@ class Game {
       );
       if (!see) continue;
       let score = dist;
+      if (o.isHostage) score *= 0.88;
       if (o.isPlayer) score *= 0.82;
       if (bot.target === o) score *= 0.75;
       if (score < bestScore) {
@@ -5546,7 +6003,10 @@ class Game {
     }
     if ($("mode-name-hud")) {
       let t = this.mode.short;
-      if (teamMode && p.team >= 0) t += " · " + TEAMS[p.team].name;
+      if (this.campaignActive && this.campaignMission) {
+        const w = this.campaignMission.win;
+        t = w === "steal" ? "STEAL" : w === "rescue" ? "RESCUE" : w === "both" ? "STEAL+SAVE" : "OP";
+      } else if (teamMode && p.team >= 0) t += " · " + TEAMS[p.team].name;
       $("mode-name-hud").textContent = t;
     }
     if ($("obj-hud")) {
@@ -5554,7 +6014,9 @@ class Game {
         const g = this._campaignProgress();
         const lives =
           this.campaignMission.lives > 0 ? " · LIVES " + this.campaignLives : "";
-        $("obj-hud").textContent = g.label + " " + g.cur + " / " + g.need + lives;
+        const m = this.campaignMission;
+        $("obj-hud").textContent =
+          (m.win === "both" || m.win === "rescue" ? g.label : g.label + " " + g.cur + " / " + g.need) + lives;
       } else if (this.modeId === "ctf" && this.flags.length === 2) {
         $("obj-hud").textContent =
           "A " + this._flagState(this.flags[0]) + "   ·   B " + this._flagState(this.flags[1]);
@@ -5603,11 +6065,13 @@ class Game {
     const off = document.createElement("canvas");
     off.width = off.height = W;
     const g = off.getContext("2d");
-    g.fillStyle = this.mapId === "yard" ? "#1a3320" : this.mapId === "labs" ? "#1c2834" : "#2a2418";
+    const miniBg = { yard: "#1a3320", labs: "#1c2834", market: "#1a1020", vault: "#1c1810", clinic: "#24282c" };
+    const miniWall = { yard: "#4a6a38", labs: "#4a5560", market: "#6a3a28", vault: "#8a7040", clinic: "#c8c0b8" };
+    g.fillStyle = miniBg[this.mapId] || "#2a2418";
     g.fillRect(0, 0, W, W);
     const S = CFG.world;
     const map = (x, z) => [((x + S / 2) / S) * W, ((z + S / 2) / S) * W];
-    g.fillStyle = this.mapId === "yard" ? "#4a6a38" : this.mapId === "labs" ? "#4a5560" : "#8a7048";
+    g.fillStyle = miniWall[this.mapId] || "#8a7048";
     for (const b of this.colliders) {
       const [x1, y1] = map(b.min.x, b.min.z);
       const [x2, y2] = map(b.max.x, b.max.z);
@@ -5638,6 +6102,21 @@ class Game {
         const [fx, fy] = map(fl.pos.x, fl.pos.z);
         g.fillStyle = hex(TEAMS[fl.team].color);
         g.fillRect(fx - 3, fy - 3, 6, 6);
+      }
+    }
+    if (this.campaignActive) {
+      const [ex, ey] = map(this.extract.x, this.extract.z);
+      g.strokeStyle = "#ffe08a";
+      g.lineWidth = 2;
+      g.beginPath();
+      g.arc(ex, ey, 8, 0, Math.PI * 2);
+      g.stroke();
+      g.lineWidth = 1;
+      for (const b of this.storyBags || []) {
+        if (b.taken) continue;
+        const [bx, by] = map(b.pos.x, b.pos.z);
+        g.fillStyle = "#d4b44a";
+        g.fillRect(bx - 2, by - 2, 4, 4);
       }
     }
     for (const other of this.fighters) {
