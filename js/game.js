@@ -25,6 +25,7 @@ const CFG = {
   headBonus: 50,
   startCredit: 200,
   netHz: 30,
+  maxPlayers: 3,
 };
 
 const WEAPONS = {
@@ -3821,12 +3822,12 @@ class Game {
     if (!list.length) {
       const empty = document.createElement("div");
       empty.className = "lobby-empty";
-      empty.textContent = "No open rooms yet. Click PLAY to start now, or ONLINE → CREATE ROOM for friends.";
+      empty.textContent = "No open rooms yet. ONLINE rooms hold 3 players. CREATE ROOM, then friends join from this list.";
       el.appendChild(empty);
       return;
     }
     for (const r of list) {
-      const max = r.max || 8;
+      const max = r.max || CFG.maxPlayers || 3;
       const full = (r.players || 0) >= max;
       const map = (MAPS[r.map] && MAPS[r.map].name) || "ARENA";
       const mode = (MODES[r.mode] && MODES[r.mode].short) || "FFA";

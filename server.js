@@ -53,7 +53,7 @@ function send(ws, obj) {
 
 const rooms = new Map();
 const watchers = new Set();
-const MAX_PLAYERS = 8;
+const MAX_PLAYERS = 3;
 const TEAM_COL = [0x3ec4ff, 0xff6a3d];
 
 function parseTeam(mode, raw) {
@@ -244,7 +244,7 @@ wss.on("connection", (ws) => {
         return;
       }
       if (room.clients.size >= MAX_PLAYERS) {
-        send(ws, { t: "err", m: "Room is full." });
+        send(ws, { t: "err", m: "Room is full. Max 3 players." });
         return;
       }
       leave(ws);
