@@ -873,6 +873,11 @@ canvas#view {
   width: 100%;
   margin-top: 10px;
 }
+#btn-coop {
+  background: linear-gradient(180deg, #3a2a12, #24180c);
+  border-color: #d4b44a;
+  color: #ffe08a;
+}
 #campaign-list {
   display: flex;
   flex-direction: column;

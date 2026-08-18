@@ -89,8 +89,10 @@ export class Net {
     if (this.ws && this.ws.readyState === 1) this.ws.send(JSON.stringify(obj));
   }
 
-  create(name, bots, map, diff, mode, look, team) {
-    this._whenOpen(() => this.send({ t: "create", name, bots, map, diff, mode, look, team }));
+  create(name, bots, map, diff, mode, look, team, extra) {
+    const payload = { t: "create", name, bots, map, diff, mode, look, team };
+    if (extra && typeof extra === "object") Object.assign(payload, extra);
+    this._whenOpen(() => this.send(payload));
   }
 
   join(code, name, look, team) {

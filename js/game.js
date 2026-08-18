@@ -2286,6 +2286,9 @@ class Game {
     this.extract = new THREE.Vector3();
     this.carryView = null;
     this._campaignFailReason = "";
+    this._pendingCoopMission = null;
+    this._storyEvent = "";
+    this._lastStoryEv = "";
     this.humans = [];
     this.net = new Net();
     this.net.onEvent = (msg) => this._onNet(msg);
@@ -2517,7 +2520,8 @@ class Game {
     $("btn-again").addEventListener("click", (e) => {
       e.preventDefault();
       if (this.campaignActive || this.playMode === "campaign") {
-        this._deployCampaign(this.campaignIndex);
+        if (this.online && this.net && !this.net.host) return;
+        this._deployCampaign(this.campaignIndex, { coop: !!(this.online && this.net && this.net.code) });
         return;
       }
       if (this.online && this.net.host) this.net.send({ t: "reset" });
@@ -2548,6 +2552,12 @@ class Game {
       $("btn-deploy").addEventListener("click", (e) => {
         e.preventDefault();
         this._deployCampaign(this.campaignIndex);
+      });
+    }
+    if ($("btn-coop")) {
+      $("btn-coop").addEventListener("click", (e) => {
+        e.preventDefault();
+        this._deployCampaign(this.campaignIndex, { coop: true });
       });
     }
     if ($("btn-brief-back")) {
@@ -3595,7 +3605,7 @@ class Game {
       const bag = this._makeBagMesh();
       bag.position.set(p.x, 0.22, p.z);
       this.storyGroup.add(bag);
-      this.storyBags.push({ mesh: bag, pos: new THREE.Vector3(p.x, 0.22, p.z), taken: false });
+      this.storyBags.push({ mesh: bag, pos: new THREE.Vector3(p.x, 0.22, p.z), taken: false, carrierId: null });
     }
 
     if (this.viewmodel) {
@@ -3619,6 +3629,8 @@ class Game {
       h.yaw = 0;
       h.freed = false;
       h.extracted = false;
+      if (this._isTeamMode() && this.player && this.player.team >= 0) h.team = this.player.team;
+      else h.team = -1;
       h.arch = { id: "civilian", speed: 1, acc: 1, range: 0, agr: 0, react: 1, fov: 2 };
       h.look = sanitizeLook({
         skin: 0xe8c4a0,
@@ -3680,55 +3692,96 @@ class Game {
     if (this.running) this._rebuildFighters();
   }
 
+  _storyAuth() {
+    return !this.online || !!(this.net && this.net.host);
+  }
+
+  _storyOperators() {
+    return (this.fighters || []).filter((f) => f && !f.isBot && !f.isHostage);
+  }
+
+  _syncLocalCarry() {
+    const id = this.player && this.player.id;
+    const idx = id ? this.storyBags.findIndex((b) => b.carrierId === id) : -1;
+    this.carriedBag = idx >= 0 ? idx : null;
+    if (this.carryView) this.carryView.visible = idx >= 0;
+  }
+
+  _storyEventNote(text) {
+    this._storyEvent = text;
+    this._banner(text);
+  }
+
   _dropCarriedBag() {
-    if (this.carriedBag == null || !this.player) return;
-    const b = this.storyBags[this.carriedBag];
-    if (b) {
+    this._dropBagFor(this.player);
+  }
+
+  _dropBagFor(ent) {
+    if (!ent) return;
+    for (const b of this.storyBags) {
+      if (b.carrierId !== ent.id) continue;
       b.taken = false;
-      const p = this.player.pos;
-      const spot = this._storyWorld([p.x, p.z]);
+      b.carrierId = null;
+      const spot = this._storyWorld([ent.pos.x, ent.pos.z]);
       b.pos.set(spot.x, 0.22, spot.z);
       if (b.mesh) {
         b.mesh.visible = true;
         b.mesh.position.copy(b.pos);
       }
     }
-    this.carriedBag = null;
-    if (this.carryView) this.carryView.visible = false;
+    this._syncLocalCarry();
   }
 
   _updateStoryItems(dt) {
-    if (!this.campaignActive || this.matchOver || !this.player || !this.player.alive) return;
+    if (!this.campaignActive || this.matchOver) return;
     const m = this.campaignMission;
-    if (!m || (m.win !== "steal" && m.win !== "both")) return;
-    const px = this.player.pos.x;
-    const pz = this.player.pos.z;
-    if (this.carriedBag == null) {
-      for (let i = 0; i < this.storyBags.length; i++) {
-        const b = this.storyBags[i];
-        if (b.taken) continue;
-        const dx = px - b.pos.x;
-        const dz = pz - b.pos.z;
-        if (dx * dx + dz * dz < 1.7 * 1.7) {
-          b.taken = true;
-          this.carriedBag = i;
-          if (b.mesh) b.mesh.visible = false;
-          if (this.carryView) this.carryView.visible = true;
-          this._banner("CASH BAG — GET TO THE YELLOW EXTRACT");
-          break;
+    if (!m || (m.win !== "steal" && m.win !== "both")) {
+      this.storyBags.forEach((b, i) => {
+        if (!b.mesh || !b.mesh.visible) return;
+        b.mesh.rotation.y += dt * 1.4;
+        b.mesh.position.y = b.pos.y + Math.sin(this.time * 3 + i) * 0.06;
+      });
+      return;
+    }
+    if (this._storyAuth()) {
+      const ops = this._storyOperators();
+      const carrying = new Set(this.storyBags.filter((b) => b.carrierId != null).map((b) => b.carrierId));
+      for (const f of ops) {
+        if (!f.alive) {
+          if (carrying.has(f.id)) this._dropBagFor(f);
+          continue;
+        }
+        if (carrying.has(f.id)) {
+          const bag = this.storyBags.find((b) => b.carrierId === f.id);
+          if (!bag) continue;
+          const dx = f.pos.x - this.extract.x;
+          const dz = f.pos.z - this.extract.z;
+          if (dx * dx + dz * dz < 2.5 * 2.5) {
+            bag.carrierId = null;
+            bag.taken = true;
+            if (bag.mesh) bag.mesh.visible = false;
+            this.deposited += 1;
+            carrying.delete(f.id);
+            this._storyEventNote("SECURED  " + this.deposited + " / " + m.target);
+          }
+          continue;
+        }
+        for (let i = 0; i < this.storyBags.length; i++) {
+          const b = this.storyBags[i];
+          if (b.taken || b.carrierId != null) continue;
+          const dx = f.pos.x - b.pos.x;
+          const dz = f.pos.z - b.pos.z;
+          if (dx * dx + dz * dz < 1.7 * 1.7) {
+            b.taken = true;
+            b.carrierId = f.id;
+            if (b.mesh) b.mesh.visible = false;
+            carrying.add(f.id);
+            this._storyEventNote("CASH BAG — GET TO THE YELLOW EXTRACT");
+            break;
+          }
         }
       }
-    } else {
-      const dx = px - this.extract.x;
-      const dz = pz - this.extract.z;
-      if (dx * dx + dz * dz < 2.5 * 2.5) {
-        const b = this.storyBags[this.carriedBag];
-        if (b && b.mesh) b.mesh.visible = false;
-        this.deposited += 1;
-        this.carriedBag = null;
-        if (this.carryView) this.carryView.visible = false;
-        this._banner("SECURED  " + this.deposited + " / " + m.target);
-      }
+      this._syncLocalCarry();
     }
     this.storyBags.forEach((b, i) => {
       if (!b.mesh || !b.mesh.visible) return;
@@ -3772,6 +3825,10 @@ class Game {
   _updateHostage(dt) {
     const h = this.hostage;
     if (!h || this.matchOver) return;
+    if (!this._storyAuth()) {
+      this._poseStoryActor(h, dt);
+      return;
+    }
     if (!h.alive) {
       this._poseStoryActor(h, dt);
       return;
@@ -3779,30 +3836,33 @@ class Game {
     let wx = 0;
     let wz = 0;
     let speed = 5.2;
+    const ops = this._storyOperators().filter((f) => f.alive);
+    let near = null;
+    let nearDist = 99;
+    for (const f of ops) {
+      const d = Math.hypot(f.pos.x - h.pos.x, f.pos.z - h.pos.z);
+      if (d < nearDist) {
+        nearDist = d;
+        near = f;
+      }
+    }
     if (!h.freed) {
-      if (this.player && this.player.alive) {
-        const dist = Math.hypot(this.player.pos.x - h.pos.x, this.player.pos.z - h.pos.z);
-        if (dist < 1.85) {
-          h.freed = true;
-          this._banner(((this.campaignMission && this.campaignMission.hostage) || "HOSTAGE") + " FREED — ESCORT TO EXTRACT");
-        }
+      if (near && nearDist < 1.85) {
+        h.freed = true;
+        this._storyEventNote(((this.campaignMission && this.campaignMission.hostage) || "HOSTAGE") + " FREED — ESCORT TO EXTRACT");
       }
     } else if (!h.extracted) {
       const ex = Math.hypot(this.extract.x - h.pos.x, this.extract.z - h.pos.z);
-      const withPlayer =
-        this.player && this.player.alive
-          ? Math.hypot(this.player.pos.x - h.pos.x, this.player.pos.z - h.pos.z)
-          : 99;
-      if (ex < 2.35 && withPlayer < 3.4) {
+      if (ex < 2.35 && near && nearDist < 3.4) {
         h.extracted = true;
         h.pos.x = this.extract.x;
         h.pos.z = this.extract.z;
-        this._banner("HOSTAGE EXTRACTED");
-      } else if (this.player && this.player.alive && withPlayer > 2.05) {
-        this._follow(h, this.player.pos.x, this.player.pos.z);
+        this._storyEventNote("HOSTAGE EXTRACTED");
+      } else if (near && nearDist > 2.05) {
+        this._follow(h, near.pos.x, near.pos.z);
         wx = h._wx || 0;
         wz = h._wz || 0;
-        h.yaw = lerpAng(h.yaw, yawTo(h.pos.x, h.pos.z, this.player.pos.x, this.player.pos.z), 1 - Math.exp(-8 * dt));
+        h.yaw = lerpAng(h.yaw, yawTo(h.pos.x, h.pos.z, near.pos.x, near.pos.z), 1 - Math.exp(-8 * dt));
       }
     }
     if (h.extracted) {
@@ -3951,6 +4011,73 @@ class Game {
     this._poseFlags();
   }
 
+  _storyPayload() {
+    const q = (n) => Math.round(n * 100) / 100;
+    const h = this.hostage;
+    const ev = this._storyEvent || "";
+    this._storyEvent = "";
+    return {
+      t: "story",
+      d: this.deposited | 0,
+      time: Math.max(0, this.roundLeft),
+      ev,
+      bags: this.storyBags.map((b) => ({
+        x: q(b.pos.x),
+        z: q(b.pos.z),
+        taken: b.taken ? 1 : 0,
+        c: b.carrierId == null ? -1 : b.carrierId,
+      })),
+      h: h
+        ? {
+            x: q(h.pos.x),
+            y: q(h.pos.y),
+            z: q(h.pos.z),
+            yaw: q(h.yaw),
+            hp: Math.round(h.health),
+            alive: h.alive ? 1 : 0,
+            freed: h.freed ? 1 : 0,
+            extracted: h.extracted ? 1 : 0,
+          }
+        : null,
+    };
+  }
+
+  _applyStory(msg) {
+    if (this._storyAuth()) return;
+    if (!this.campaignActive) return;
+    if (msg.d != null) this.deposited = msg.d;
+    if (msg.time != null) this.roundLeft = msg.time;
+    if (msg.ev && msg.ev !== this._lastStoryEv) {
+      this._lastStoryEv = msg.ev;
+      this._banner(msg.ev);
+    }
+    if (Array.isArray(msg.bags) && this.storyBags.length) {
+      for (let i = 0; i < this.storyBags.length; i++) {
+        const s = msg.bags[i];
+        const b = this.storyBags[i];
+        if (!s || !b) continue;
+        b.taken = !!s.taken;
+        b.carrierId = s.c >= 0 ? s.c : null;
+        if (s.x != null) b.pos.set(s.x, 0.22, s.z);
+        if (b.mesh) {
+          b.mesh.visible = !b.taken;
+          if (b.mesh.visible) b.mesh.position.copy(b.pos);
+        }
+      }
+    }
+    this._syncLocalCarry();
+    if (msg.h && this.hostage) {
+      const h = this.hostage;
+      h.pos.set(msg.h.x, msg.h.y, msg.h.z);
+      h.yaw = msg.h.yaw;
+      h.health = msg.h.hp;
+      h.alive = !!msg.h.alive;
+      h.freed = !!msg.h.freed;
+      h.extracted = !!msg.h.extracted;
+      if (!h.alive) h.health = 0;
+    }
+  }
+
   _poseFlags() {
     for (const f of this.flags) {
       const c = f.carrierId != null ? this._byId(f.carrierId) : null;
@@ -4008,16 +4135,27 @@ class Game {
     const next = mode === "online" ? "online" : mode === "campaign" ? "campaign" : "local";
     this.playMode = next;
     this.online = next === "online";
+    this._pendingCoopMission = null;
     if (next !== "campaign") this._closeBriefing();
     if ($("mode-local")) $("mode-local").classList.toggle("on", next === "local");
     if ($("mode-campaign")) $("mode-campaign").classList.toggle("on", next === "campaign");
     if ($("mode-online")) $("mode-online").classList.toggle("on", next === "online");
-    if ($("lobby-panel")) $("lobby-panel").classList.toggle("hidden", next === "campaign");
+    if ($("lobby-panel")) {
+      $("lobby-panel").classList.remove("hidden");
+      const lab = $("lobby-panel").querySelector(".pick-label");
+      if (lab) {
+        lab.textContent = next === "campaign" ? "CO-OP OPS · 3 PLAYERS MAX" : "LIVE LOBBY · 3 PLAYERS MAX";
+      }
+    }
     if ($("campaign-panel")) $("campaign-panel").classList.toggle("hidden", next !== "campaign");
     if ($("skirmish-opts")) $("skirmish-opts").classList.toggle("hidden", next === "campaign");
     if ($("menu-eyebrow")) {
       $("menu-eyebrow").textContent =
-        next === "online" ? "ONLINE DEATHMATCH" : next === "campaign" ? "OPERATION NEXUS" : "LOCAL MATCH";
+        next === "online"
+          ? "ONLINE DEATHMATCH"
+          : next === "campaign"
+            ? "OPERATION NEXUS · SOLO OR CO-OP"
+            : "LOCAL MATCH";
     }
     if ($("btn-start")) {
       $("btn-start").textContent = next === "online" ? "CREATE ROOM" : next === "campaign" ? "DEPLOY" : "PLAY";
@@ -4088,13 +4226,52 @@ class Game {
     if ($("briefing")) $("briefing").classList.add("hidden");
   }
 
-  _deployCampaign(index) {
+  _deployCampaign(index, opts = {}) {
     const i = Math.max(0, Math.min(CAMPAIGN.length - 1, index == null ? this.campaignIndex : Number(index)));
-    if (!this._campaignUnlocked(i)) return;
+    if (!this._campaignUnlocked(i) && !opts.fromNet) return;
     const m = CAMPAIGN[i];
     this.campaignIndex = i;
     this._closeBriefing();
     if ($("match-over")) $("match-over").classList.add("hidden");
+    const coop = !!opts.coop;
+    if (coop && this.net && this.net.code && (this.net.host || opts.fromNet)) {
+      if (this.net.host && !opts.fromNet) {
+        this.net.send({
+          t: "reset",
+          campaign: 1,
+          mission: i,
+          map: m.map,
+          diff: m.diff,
+          mode: "tdm",
+          bots: m.bots,
+        });
+      }
+      this.startMatch({
+        campaign: true,
+        campaignIndex: i,
+        map: m.map,
+        mode: "tdm",
+        diff: m.diff,
+        bots: m.bots,
+        online: true,
+        keepOnline: true,
+        host: this.net.host,
+        netId: this.net.id,
+        players: this.net.players,
+      });
+      return;
+    }
+    if (coop) {
+      this._pendingCoopMission = i;
+      this.online = true;
+      if ($("net-status")) $("net-status").textContent = "Opening co-op room…";
+      this.net.create(this._playerName(), m.bots, m.map, m.diff, "tdm", this.look, 0, {
+        campaign: true,
+        mission: i,
+        op: m.title,
+      });
+      return;
+    }
     this.startMatch({
       campaign: true,
       campaignIndex: i,
@@ -4165,12 +4342,14 @@ class Game {
 
   _checkCampaign() {
     if (!this.campaignActive || this.matchOver || this.inShop) return;
+    if (!this._storyAuth()) return;
     if (this.campaignMission && this.campaignMission.win === "survive") return;
     if (this._campaignObjectiveMet()) this._endCampaign(true);
   }
 
   _resolveCampaignTime() {
     if (!this.campaignActive || this.matchOver) return;
+    if (!this._storyAuth()) return;
     const m = this.campaignMission;
     if (m && m.win === "survive") {
       this._endCampaign(this._campaignObjectiveMet());
@@ -4179,8 +4358,16 @@ class Game {
     this._endCampaign(this._campaignObjectiveMet());
   }
 
-  _endCampaign(won) {
+  _endCampaign(won, fromNet = false) {
     if (this.matchOver) return;
+    if (this.online && this.net && this.net.host && !fromNet) {
+      this.net.send({
+        t: "campend",
+        won: won ? 1 : 0,
+        reason: this._campaignFailReason || "",
+        i: this.campaignIndex,
+      });
+    }
     this.matchOver = true;
     this.running = true;
     this._matchOpen = false;
@@ -4226,8 +4413,14 @@ class Game {
         .map((f, i) => `${i + 1}. ${f.name}  ${f.kills}–${f.deaths}`)
         .join("<br>");
     }
-    if ($("btn-again")) $("btn-again").textContent = "RETRY";
-    const hasNext = won && this.campaignIndex < CAMPAIGN.length - 1 && this._campaignUnlocked(this.campaignIndex + 1);
+    if ($("btn-again")) {
+      $("btn-again").textContent = this.online && this.net && !this.net.host ? "WAIT FOR HOST" : "RETRY";
+    }
+    const hasNext =
+      won &&
+      this.campaignIndex < CAMPAIGN.length - 1 &&
+      this._campaignUnlocked(this.campaignIndex + 1) &&
+      !(this.online && this.net && !this.net.host);
     if ($("btn-next-mission")) $("btn-next-mission").classList.toggle("hidden", !hasNext);
     if ($("btn-ops")) $("btn-ops").classList.remove("hidden");
     try {
@@ -4261,7 +4454,10 @@ class Game {
     if (!list.length) {
       const empty = document.createElement("div");
       empty.className = "lobby-empty";
-      empty.textContent = "No open rooms yet. ONLINE rooms hold 3 players. CREATE ROOM, then friends join from this list.";
+      empty.textContent =
+        this.playMode === "campaign"
+          ? "No co-op ops yet. Open a mission, then CO-OP · 3 PLAYERS. Friends join from this list."
+          : "No open rooms yet. ONLINE rooms hold 3 players. CREATE ROOM, then friends join from this list.";
       el.appendChild(empty);
       return;
     }
@@ -4284,7 +4480,13 @@ class Game {
       const host = document.createElement("b");
       host.textContent = r.host || "HOST";
       const info = document.createElement("i");
-      const bits = [r.players + "/" + max, mode, map];
+      const bits = [r.players + "/" + max];
+      if (r.campaign) {
+        bits.push("CO-OP");
+        bits.push(r.op || (CAMPAIGN[r.mission] && CAMPAIGN[r.mission].title) || "OP");
+      } else {
+        bits.push(mode, map);
+      }
       if (diff) bits.push(diff);
       if (r.bots) bits.push(r.bots + " BOTS");
       info.textContent = bits.join(" · ");
@@ -4298,8 +4500,8 @@ class Game {
   }
 
   _joinLobby(code) {
-    if (!this.online) this._setMode(true);
     if ($("room-code")) $("room-code").value = String(code || "").toUpperCase();
+    this.online = true;
     this._joinRoom();
   }
 
@@ -4325,13 +4527,14 @@ class Game {
       else this.startMatch();
       return;
     }
-    if (!this.online) this._setMode(true);
+    if (!this.online) this.online = true;
     if ($("net-status")) $("net-status").textContent = "Joining " + code.toUpperCase() + "…";
     this.net.join(code, this._playerName(), this.look, this.wantTeam);
   }
 
   _onNet(msg) {
     if (msg.t === "err") {
+      this._pendingCoopMission = null;
       if ($("net-status")) $("net-status").textContent = msg.m || "Network error.";
       return;
     }
@@ -4355,15 +4558,25 @@ class Game {
       $("net-status").textContent = "Room " + msg.code + " — share this code.";
       $("room-code").value = msg.code;
       if (msg.team === 0 || msg.team === 1) this.wantTeam = msg.team;
+      const coop = !!msg.campaign || (!!msg.host && this._pendingCoopMission != null);
+      const mission =
+        coop && msg.mission != null && msg.mission >= 0
+          ? msg.mission
+          : this._pendingCoopMission != null
+            ? this._pendingCoopMission
+            : 0;
+      this._pendingCoopMission = null;
       this.startMatch({
         online: true,
+        campaign: coop,
+        campaignIndex: coop ? mission : 0,
         netId: msg.id,
         players: msg.players,
         bots: msg.bots,
         host: msg.host,
         map: msg.map,
         diff: msg.diff,
-        mode: msg.mode,
+        mode: coop ? "tdm" : msg.mode,
       });
       return;
     }
@@ -4385,7 +4598,29 @@ class Game {
     if (msg.t === "shop") this._openShop(true);
     if (msg.t === "next") this._nextRound(true);
     if (msg.t === "obj") this._applyObj(msg);
-    if (msg.t === "reset") this.startMatch({ keepOnline: true, mode: this.modeId, map: this.mapId, diff: this.diffId });
+    if (msg.t === "story") this._applyStory(msg);
+    if (msg.t === "campend") {
+      this._campaignFailReason = msg.reason || "";
+      if (msg.i != null) this.campaignIndex = msg.i;
+      this._endCampaign(!!msg.won, true);
+    }
+    if (msg.t === "reset") {
+      const coop = !!(msg.campaign || this.campaignActive);
+      const mission = msg.mission != null && msg.mission >= 0 ? msg.mission : this.campaignIndex;
+      this.startMatch({
+        keepOnline: true,
+        online: true,
+        campaign: coop,
+        campaignIndex: coop ? mission : 0,
+        mode: coop ? "tdm" : msg.mode || this.modeId,
+        map: msg.map || this.mapId,
+        diff: msg.diff || this.diffId,
+        bots: msg.bots != null ? msg.bots : this.botCount,
+        host: this.net.host,
+        netId: this.net.id,
+        players: this.net.players,
+      });
+    }
   }
 
   _byId(id) {
@@ -4400,11 +4635,12 @@ class Game {
     if (!id || (this.player && id === this.player.id) || this._byId(id)) return null;
     const f = this._makeFighter(name || "PLAYER", color || 0x8892a0, false);
     f.id = id;
-    this._assignTeam(f, id - 1, team === 0 || team === 1 ? team : undefined);
-    if (this._isTeamMode() && f.team >= 0) f.color = TEAMS[f.team].color;
     f.isRemote = true;
     f.isBot = !!isBot;
     f.arch = isBot ? ARCHETYPES[id % ARCHETYPES.length] : { id: "human" };
+    if (this.campaignActive && this.online) this._assignTeam(f, 0, isBot ? 1 : 0);
+    else this._assignTeam(f, id - 1, team === 0 || team === 1 ? team : undefined);
+    if (this._isTeamMode() && f.team >= 0) f.color = TEAMS[f.team].color;
     f.look = look ? sanitizeLook(look) : randomLook(f.color);
     f.lookKey = lookKey(f.look);
     const rig = this._makeRig(f);
@@ -4420,6 +4656,7 @@ class Game {
   _removeRemote(id) {
     const f = this._byId(id);
     if (!f || f.isPlayer) return;
+    if (this._storyAuth()) this._dropBagFor(f);
     if (f.rig) this.scene.remove(f.rig.group);
     this.bots = this.bots.filter((b) => b !== f);
     this.humans = this.humans.filter((h) => h !== f);
@@ -4588,6 +4825,7 @@ class Game {
       });
     }
     if (this.net.host && this._isTeamMode()) this.net.send(this._objPayload());
+    if (this.net.host && this.campaignActive) this.net.send(this._storyPayload());
   }
 
   startMatch(opts = {}) {
@@ -4609,14 +4847,16 @@ class Game {
       this.online = keepOnline || this.online && !!opts.online;
       if (opts.online) this.online = true;
       if (opts.campaign) {
-        this.online = false;
         this.playMode = "campaign";
         this.campaignActive = true;
         this.campaignIndex = opts.campaignIndex || 0;
         this.campaignMission = CAMPAIGN[this.campaignIndex] || CAMPAIGN[0];
+        const coop = !!(opts.online || opts.keepOnline);
+        this.online = coop;
         if (this.campaignMission.team === 0 || this.campaignMission.team === 1) {
           this.wantTeam = this.campaignMission.team;
         }
+        if (coop) this.wantTeam = 0;
         this.campaignLives = this.campaignMission.lives || 0;
       } else {
         this.campaignActive = false;
@@ -4627,6 +4867,10 @@ class Game {
       this.botCount = opts.bots != null ? opts.bots : parseInt($("bots").value, 10);
       if (opts.diff && DIFFICULTY[opts.diff]) this._setDifficulty(opts.diff);
       if (opts.mode && MODES[opts.mode]) this._setGame(opts.mode);
+      if (this.campaignActive && this.online) {
+        this._setGame("tdm");
+        this.wantTeam = 0;
+      }
       const wantMap = opts.map && MAPS[opts.map] ? opts.map : this.mapId;
       if (!this.worldRoot || wantMap !== this.mapId) this._loadMap(wantMap);
       $("menu").classList.add("hidden");
@@ -4679,7 +4923,8 @@ class Game {
           const op = OPERATORS[i % OPERATORS.length];
           const bot = this._makeFighter(op.name, op.color, false);
           bot.id = 1000 + i;
-          this._assignTeam(bot, this.player.team === 0 ? i + 1 : i);
+          if (this.campaignActive && this.online) this._assignTeam(bot, 0, 1);
+          else this._assignTeam(bot, this.player.team === 0 ? i + 1 : i);
           const col = this._isTeamMode() ? TEAMS[bot.team].color : op.color;
           bot.color = col;
           bot.arch = ARCHETYPES[i % ARCHETYPES.length];
@@ -4732,7 +4977,11 @@ class Game {
       if (this.online && this.net.code) {
         $("room-chip").classList.remove("hidden");
         $("room-code-hud").textContent = this.net.code;
-        this._banner("ROOM " + this.net.code);
+        if (this.campaignActive && this.campaignMission) {
+          this._banner(this.campaignMission.title + " · CO-OP " + this.net.code + " · " + campaignGoal(this.campaignMission));
+        } else {
+          this._banner("ROOM " + this.net.code);
+        }
       } else {
         $("room-chip").classList.add("hidden");
         if (this.campaignActive && this.campaignMission) {
@@ -5293,7 +5542,7 @@ class Game {
       if (attacker.isPlayer) this._onPlayerKill(head);
     }
     this._dropFlag(ent);
-    if (ent.isPlayer) this._dropCarriedBag();
+    this._dropBagFor(ent);
     this.audio.death();
     this._feed(attacker, ent, head);
     if (ent.isHostage) {
@@ -5312,6 +5561,7 @@ class Game {
         if (this.campaignLives <= 0) {
           ent.respawnT = 99;
           if ($("respawn-cd")) $("respawn-cd").textContent = "NO LIVES LEFT";
+          if (this.online) return;
           this._endCampaign(false);
           return;
         }
@@ -5397,11 +5647,15 @@ class Game {
     this.roundLeft -= dt;
     if (this.roundLeft <= 0) {
       if (this.campaignActive) {
-        this._resolveCampaignTime();
+        if (this._storyAuth()) {
+          this._resolveCampaignTime();
+          return;
+        }
+        this.roundLeft = 0.05;
+      } else {
+        this._openShop();
         return;
       }
-      this._openShop();
-      return;
     }
     if (this.player) this._updatePlayer(dt);
     for (const h of this.humans) {
@@ -5995,7 +6249,7 @@ class Game {
       $("round-timer").classList.toggle("low", this.roundLeft <= 30);
     }
     const teamMode = this._isTeamMode();
-    if ($("team-score")) $("team-score").classList.toggle("hidden", !teamMode);
+    if ($("team-score")) $("team-score").classList.toggle("hidden", !teamMode || this.campaignActive);
     if ($("lead-chip")) $("lead-chip").classList.toggle("hidden", teamMode);
     if (teamMode) {
       if ($("score-a")) $("score-a").textContent = String(this.teamScore[0] | 0);
@@ -6006,6 +6260,7 @@ class Game {
       if (this.campaignActive && this.campaignMission) {
         const w = this.campaignMission.win;
         t = w === "steal" ? "STEAL" : w === "rescue" ? "RESCUE" : w === "both" ? "STEAL+SAVE" : "OP";
+        if (this.online) t += " · CO-OP";
       } else if (teamMode && p.team >= 0) t += " · " + TEAMS[p.team].name;
       $("mode-name-hud").textContent = t;
     }

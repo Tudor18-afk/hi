@@ -94,6 +94,9 @@ function lobbyInfo(room) {
     map: room.map,
     diff: room.diff,
     mode: room.mode || "ffa",
+    campaign: !!room.campaign,
+    mission: room.mission == null ? -1 : room.mission,
+    op: room.op || "",
   };
 }
 
@@ -211,14 +214,24 @@ wss.on("connection", (ws) => {
       const bots = Math.max(0, Math.min(8, Number(msg.bots) || 0));
       const map = ["warehouse", "yard", "labs", "market", "vault", "clinic"].includes(msg.map) ? msg.map : "warehouse";
       const diff = ["easy", "normal", "hard", "insane"].includes(msg.diff) ? msg.diff : "normal";
-      const mode = ["ffa", "tdm", "ctf", "koth"].includes(msg.mode) ? msg.mode : "ffa";
-      const team = parseTeam(mode, msg.team);
+      const campaign = !!msg.campaign;
+      const mission = Math.max(0, Math.min(7, Math.floor(Number(msg.mission) || 0)));
+      const op = String(msg.op || "").slice(0, 28).toUpperCase();
+      const mode = campaign
+        ? "tdm"
+        : ["ffa", "tdm", "ctf", "koth"].includes(msg.mode)
+          ? msg.mode
+          : "ffa";
+      const team = campaign ? 0 : parseTeam(mode, msg.team);
       const room = {
         code,
         bots,
         map,
         diff,
         mode,
+        campaign,
+        mission: campaign ? mission : -1,
+        op: campaign ? op : "",
         nextId: 1,
         hostId: 0,
         clients: new Map(),
@@ -231,7 +244,21 @@ wss.on("connection", (ws) => {
       ws.playerId = id;
       ws.roomCode = code;
       rooms.set(code, room);
-      send(ws, { t: "ok", id, code, host: true, bots, map, diff, mode, team, players: roster(room) });
+      send(ws, {
+        t: "ok",
+        id,
+        code,
+        host: true,
+        bots,
+        map,
+        diff,
+        mode,
+        team,
+        campaign: !!room.campaign,
+        mission: room.mission,
+        op: room.op || "",
+        players: roster(room),
+      });
       broadcastLobbies();
       return;
     }
@@ -251,13 +278,27 @@ wss.on("connection", (ws) => {
       unwatch(ws);
       const name = String(msg.name || "PLAYER").slice(0, 12).toUpperCase() || "PLAYER";
       const id = room.nextId++;
-      const team = parseTeam(room.mode || "ffa", msg.team);
+      const team = room.campaign ? 0 : parseTeam(room.mode || "ffa", msg.team);
       const color = team >= 0 ? TEAM_COL[team] : COLORS[(id - 1) % COLORS.length];
       const look = sanitizeLook(msg.look);
       room.clients.set(ws, { ws, id, name, color, look, team });
       ws.playerId = id;
       ws.roomCode = code;
-      send(ws, { t: "ok", id, code, host: id === room.hostId, bots: room.bots, map: room.map, diff: room.diff, mode: room.mode || "ffa", team, players: roster(room) });
+      send(ws, {
+        t: "ok",
+        id,
+        code,
+        host: id === room.hostId,
+        bots: room.bots,
+        map: room.map,
+        diff: room.diff,
+        mode: room.mode || "ffa",
+        team,
+        campaign: !!room.campaign,
+        mission: room.mission,
+        op: room.op || "",
+        players: roster(room),
+      });
       broadcast(room, { t: "join", id, name, color, look, team, players: roster(room) }, ws);
       broadcastLobbies();
       return;
@@ -274,7 +315,7 @@ wss.on("connection", (ws) => {
       return;
     }
 
-    if (msg.t === "st" || msg.t === "shot" || msg.t === "hit" || msg.t === "bst" || msg.t === "reset" || msg.t === "shop" || msg.t === "next" || msg.t === "obj") {
+    if (msg.t === "st" || msg.t === "shot" || msg.t === "hit" || msg.t === "bst" || msg.t === "reset" || msg.t === "shop" || msg.t === "next" || msg.t === "obj" || msg.t === "story" || msg.t === "campend") {
       msg.id = from.id;
       if (msg.look) {
         from.look = sanitizeLook(msg.look);
