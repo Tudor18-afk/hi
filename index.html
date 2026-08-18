@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NEXUS ARENA — AI Deathmatch</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' fill='%2307090d'/%3E%3Cpath d='M12 48 L32 12 L52 48 Z' fill='none' stroke='%235ce1ff' stroke-width='4'/%3E%3Ccircle cx='32' cy='36' r='4' fill='%23ffb347'/%3E%3C/svg%3E" />
+  <link rel="stylesheet" href="css/style.css" />
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "./vendor/three.module.min.js"
+    }
+  }
+  </script>
+</head>
+<body>
+  <div id="root">
+    <canvas id="view"></canvas>
+
+    <div id="hud" class="hidden">
+      <div id="vignette"></div>
+      <div id="damage-flash"></div>
+      <div id="dir-n" class="hurt-dir"></div>
+      <div id="dir-e" class="hurt-dir"></div>
+      <div id="dir-s" class="hurt-dir"></div>
+      <div id="dir-w" class="hurt-dir"></div>
+
+      <div id="scope">
+        <div class="scope-shade"></div>
+        <div class="scope-ring"></div>
+        <div class="scope-glass"></div>
+        <div class="scope-reticle">
+          <i class="sr-h"></i>
+          <i class="sr-v"></i>
+          <i class="sr-dot"></i>
+        </div>
+      </div>
+      <div id="holo"></div>
+      <div id="crosshair" class="xh" data-style="default">
+        <i class="ring"></i>
+        <i class="tick t"></i>
+        <i class="tick b"></i>
+        <i class="tick l"></i>
+        <i class="tick r"></i>
+        <i class="dot"></i>
+      </div>
+      <div id="hitmarker"></div>
+
+      <div id="killfeed"></div>
+      <div id="live-board"></div>
+
+      <div id="top-center">
+        <div id="round-timer">5:00</div>
+        <div class="frag-limit"><span id="round-label">ROUND</span> <b id="round-num">1</b></div>
+        <div id="lead-chip">LEAD · <span id="lead-name">—</span> <span id="lead-score">0</span></div>
+        <div id="team-score" class="hidden">
+          <span class="ts a">ALPHA <b id="score-a">0</b></span>
+          <span class="ts vs">VS</span>
+          <span class="ts b"><b id="score-b">0</b> BRAVO</span>
+        </div>
+        <div id="obj-hud"></div>
+        <div id="match-meta"><span id="mode-name-hud">FFA</span> · <span id="map-name-hud">SUNSET RANGE</span> · <span id="diff-name-hud">NORMAL</span></div>
+      </div>
+
+      <canvas id="minimap" width="176" height="176"></canvas>
+
+      <div id="hp-panel">
+        <div class="meta">VITALS</div>
+        <div id="hp-row">
+          <div id="hp-bar-wrap"><div id="hp-bar"></div></div>
+          <div id="hp-num">100</div>
+        </div>
+      </div>
+
+      <div id="ammo-panel">
+        <div id="ammo-mag">30</div>
+        <div id="ammo-rest">/ 90</div>
+        <div class="meta" id="weapon-name">CARBINE · FULL AUTO</div>
+      </div>
+
+      <div id="score-chip"><b id="my-frags">0</b><span>FRAGS</span></div>
+      <div id="credit-chip">¢ <b id="credits-hud">0</b></div>
+      <div id="room-chip" class="hidden">ROOM <b id="room-code-hud">----</b></div>
+      <div id="banner"></div>
+      <div id="look-hint" class="hidden">Click the arena to capture mouse · or drag to look</div>
+    </div>
+
+    <div id="touch-ui" class="hidden">
+      <div id="stick"><div id="stick-knob"></div></div>
+      <button id="touch-jump" type="button">JUMP</button>
+      <button id="touch-aim" type="button">AIM</button>
+      <button id="touch-fire" type="button">FIRE</button>
+    </div>
+
+    <div id="scoreboard" class="hidden">
+      <div class="sb-head">
+        <span>OPERATORS</span>
+        <span class="sb-hint">HOLD TAB</span>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>NAME</th>
+            <th>FRAGS</th>
+            <th>DEATHS</th>
+            <th>STATUS</th>
+          </tr>
+        </thead>
+        <tbody id="sb-body"></tbody>
+      </table>
+    </div>
+
+    <div id="death-screen" class="hidden">
+      <div class="kia">KIA</div>
+      <div id="killed-by">eliminated by —</div>
+      <div id="respawn-cd">RESPAWNING</div>
+    </div>
+
+    <div id="paused" class="hidden">
+      <h2>PAUSED</h2>
+      <p>Click PLAY to jump back in. Press Y to leave to the main menu. Press P to change your look and crosshair.</p>
+      <button id="btn-resume" type="button">PLAY</button>
+      <button id="btn-menu" type="button">MAIN MENU</button>
+    </div>
+
+    <div id="settings" class="hidden">
+      <div class="set-panel">
+        <div class="eyebrow">PRESS P TO CLOSE</div>
+        <h2>SETTINGS</h2>
+        <div class="pick-label">YOUR OPERATOR</div>
+        <canvas id="look-preview" width="140" height="180"></canvas>
+        <p class="look-note">This is how you look in the arena. Friends see it in online rooms.</p>
+        <div class="mode-row wrap">
+          <button type="button" class="mode" id="look-random-btn">RANDOMIZE</button>
+        </div>
+        <div class="pick-label">SKIN</div>
+        <div class="xh-colors" id="look-skin-row"></div>
+        <div class="pick-label">HAIR</div>
+        <div class="mode-row wrap" id="look-hair-row">
+          <button type="button" class="mode" data-look-hair="bald">BALD</button>
+          <button type="button" class="mode" data-look-hair="buzz">BUZZ</button>
+          <button type="button" class="mode on" data-look-hair="short">SHORT</button>
+          <button type="button" class="mode" data-look-hair="long">LONG</button>
+          <button type="button" class="mode" data-look-hair="mohawk">HAWK</button>
+          <button type="button" class="mode" data-look-hair="pony">PONY</button>
+        </div>
+        <div class="pick-label">HAIR COLOR</div>
+        <div class="xh-colors" id="look-hairc-row"></div>
+        <div class="pick-label">SHIRT</div>
+        <div class="xh-colors" id="look-shirt-row"></div>
+        <div class="pick-label">PANTS</div>
+        <div class="xh-colors" id="look-pants-row"></div>
+        <div class="pick-label">GEAR</div>
+        <div class="mode-row wrap" id="look-gear-row">
+          <button type="button" class="mode on" id="look-vest-btn">VEST</button>
+          <button type="button" class="mode on" data-look-helm="none">NO HELM</button>
+          <button type="button" class="mode" data-look-helm="cap">CAP</button>
+          <button type="button" class="mode" data-look-helm="tactical">HELMET</button>
+        </div>
+        <div class="mode-row wrap" id="look-beard-row">
+          <button type="button" class="mode on" data-look-beard="none">CLEAN</button>
+          <button type="button" class="mode" data-look-beard="stubble">STUBBLE</button>
+          <button type="button" class="mode" data-look-beard="full">BEARD</button>
+        </div>
+        <div class="pick-label">CROSSHAIR</div>
+        <div class="xh-preview-wrap">
+          <div id="xh-preview" class="xh" data-style="default">
+            <i class="ring"></i>
+            <i class="tick t"></i>
+            <i class="tick b"></i>
+            <i class="tick l"></i>
+            <i class="tick r"></i>
+            <i class="dot"></i>
+          </div>
+        </div>
+        <div class="pick-label">CROSSHAIR STYLE</div>
+        <div class="mode-row wrap" id="xh-style-row">
+          <button type="button" class="mode on" data-xh-style="default">CROSS</button>
+          <button type="button" class="mode" data-xh-style="plus">PLUS</button>
+          <button type="button" class="mode" data-xh-style="dot">DOT</button>
+          <button type="button" class="mode" data-xh-style="circle">CIRCLE</button>
+          <button type="button" class="mode" data-xh-style="chevron">CHEVRON</button>
+          <button type="button" class="mode" data-xh-style="box">BOX</button>
+        </div>
+        <div class="pick-label">COLOR</div>
+        <div class="xh-colors" id="xh-color-row">
+          <button type="button" class="xh-swatch on" data-xh-color="#f4fbff" style="background:#f4fbff" title="White"></button>
+          <button type="button" class="xh-swatch" data-xh-color="#5ce1ff" style="background:#5ce1ff" title="Cyan"></button>
+          <button type="button" class="xh-swatch" data-xh-color="#7dff6a" style="background:#7dff6a" title="Green"></button>
+          <button type="button" class="xh-swatch" data-xh-color="#ff4d5a" style="background:#ff4d5a" title="Red"></button>
+          <button type="button" class="xh-swatch" data-xh-color="#ffb347" style="background:#ffb347" title="Amber"></button>
+          <button type="button" class="xh-swatch" data-xh-color="#e056a0" style="background:#e056a0" title="Pink"></button>
+          <button type="button" class="xh-swatch" data-xh-color="#b47cff" style="background:#b47cff" title="Purple"></button>
+        </div>
+        <div class="set-sliders">
+          <label>SIZE <input id="xh-size" type="range" min="16" max="72" step="1" value="28" /><b id="xh-size-val">28</b></label>
+          <label>GAP <input id="xh-gap" type="range" min="0" max="18" step="1" value="4" /><b id="xh-gap-val">4</b></label>
+          <label>THICKNESS <input id="xh-thick" type="range" min="1" max="6" step="1" value="2" /><b id="xh-thick-val">2</b></label>
+          <label>LENGTH <input id="xh-len" type="range" min="4" max="20" step="1" value="8" /><b id="xh-len-val">8</b></label>
+          <label>OPACITY <input id="xh-op" type="range" min="0.35" max="1" step="0.05" value="1" /><b id="xh-op-val">1.0</b></label>
+        </div>
+        <div class="mode-row wrap" id="xh-opt-row">
+          <button type="button" class="mode on" id="xh-dot-btn">CENTER DOT</button>
+          <button type="button" class="mode on" id="xh-outline-btn">OUTLINE</button>
+        </div>
+        <button id="btn-settings-close" type="button">CLOSE</button>
+      </div>
+    </div>
+
+    <div id="shop" class="hidden">
+      <div class="shop-col">
+        <div class="eyebrow">ROUND OVER</div>
+        <h2>ARMORY</h2>
+        <div id="shop-credits">¢ 0</div>
+        <div class="pick-label">LEADERBOARD</div>
+        <div id="shop-board"></div>
+        <div id="shop-timer">NEXT ROUND 0:25</div>
+        <button id="btn-next-round" type="button">NEXT ROUND</button>
+      </div>
+      <div class="shop-col wide">
+        <div class="pick-label">BUY WEAPONS · KEYS 1–4 TO EQUIP</div>
+        <div id="shop-items"></div>
+      </div>
+    </div>
+
+    <div id="match-over" class="hidden">
+      <div class="eyebrow" id="over-eyebrow">MATCH COMPLETE</div>
+      <h2 id="winner-name">YOU</h2>
+      <p id="winner-sub">took the arena</p>
+      <div id="final-board"></div>
+      <button id="btn-again" type="button">RUN IT BACK</button>
+      <button id="btn-next-mission" class="hidden" type="button">NEXT MISSION</button>
+      <button id="btn-ops" class="hidden" type="button">OPERATIONS</button>
+    </div>
+
+    <div id="briefing" class="hidden">
+      <div class="brief-card">
+        <div class="eyebrow" id="brief-op">OPERATION NEXUS</div>
+        <h2 id="brief-title">RANGE FIRE</h2>
+        <p id="brief-story"></p>
+        <div id="brief-obj">OBJECTIVE</div>
+        <div id="brief-meta"></div>
+        <button id="btn-deploy" type="button">DEPLOY SOLO</button>
+        <button id="btn-coop" type="button">CO-OP · 3 PLAYERS</button>
+        <button id="btn-brief-back" type="button">BACK</button>
+      </div>
+    </div>
+
+    <div id="menu">
+      <div class="menu-scan"></div>
+      <div class="menu-inner">
+        <div class="eyebrow" id="menu-eyebrow">LOCAL OR ONLINE</div>
+        <h1>NEXUS<span>ARENA</span></h1>
+        <p class="tag">
+          Steal Helix cash, pull hostages to extract, or run a 3-player co-op op. Credits, guns, look, and campaign progress save in this browser.
+        </p>
+        <div class="career-bar" id="career-bar">
+          <div><span>CREDITS</span><b id="menu-credits">¢ 200</b></div>
+          <div><span>K / D</span><b id="menu-kd">0–0</b></div>
+          <div><span>WINS</span><b id="menu-wins">0</b></div>
+          <div><span>OPS</span><b id="menu-ops">1 / 8</b></div>
+          <div><span>LOADOUT</span><b id="menu-guns">AR-15</b></div>
+        </div>
+        <div class="mode-row">
+          <button type="button" class="mode on" id="mode-local">LOCAL</button>
+          <button type="button" class="mode" id="mode-campaign">CAMPAIGN</button>
+          <button type="button" class="mode" id="mode-online">ONLINE</button>
+        </div>
+        <div class="pick-block lobby-block" id="lobby-panel">
+          <div class="pick-label">LIVE LOBBY · 3 PLAYERS MAX</div>
+          <div id="lobby-list">
+            <div class="lobby-empty">Click PLAY to start now. Open rooms will show up here.</div>
+          </div>
+          <div class="online-row">
+            <input id="room-code" type="text" maxlength="4" placeholder="CODE" autocomplete="off" />
+            <button id="btn-join" type="button">GO</button>
+          </div>
+          <div id="net-status">Click PLAY to start. Finding open lobbies…</div>
+        </div>
+        <div class="pick-block lobby-block hidden" id="campaign-panel">
+          <div class="pick-label">OPERATION NEXUS · SOLO OR CO-OP</div>
+          <div id="campaign-list"></div>
+        </div>
+        <div id="local-actions">
+          <button id="btn-start" type="button">PLAY</button>
+        </div>
+        <div class="settings">
+          <label>
+            <span>YOUR NAME</span>
+            <input id="player-name" type="text" maxlength="12" value="YOU" autocomplete="off" />
+          </label>
+          <div class="mode-row wrap">
+            <button type="button" class="mode" id="btn-customize">CUSTOMIZE LOOK (P)</button>
+          </div>
+          <label>
+            <span>MOUSE SENSITIVITY</span>
+            <input id="sens" type="range" min="0.4" max="2.8" step="0.1" value="1.2" />
+            <b id="sens-val">1.2</b>
+          </label>
+        </div>
+        <div id="skirmish-opts">
+          <div class="settings">
+            <label>
+              <span>AI BOTS (0 = NONE)</span>
+              <input id="bots" type="range" min="0" max="8" step="1" value="8" />
+              <b id="bots-val">8</b>
+            </label>
+          </div>
+          <div class="pick-block">
+            <div class="pick-label">GAME MODE</div>
+            <div class="mode-row wrap" id="game-row">
+              <button type="button" class="mode on" data-game="ffa">FFA</button>
+              <button type="button" class="mode" data-game="tdm">TEAM DM</button>
+              <button type="button" class="mode" data-game="ctf">CTF</button>
+              <button type="button" class="mode" data-game="koth">KING HILL</button>
+            </div>
+          </div>
+          <div class="pick-block" id="team-block">
+            <div class="pick-label">YOUR TEAM</div>
+            <div class="mode-row wrap" id="team-row">
+              <button type="button" class="mode on team-alpha" data-team="0">ALPHA</button>
+              <button type="button" class="mode team-bravo" data-team="1">BRAVO</button>
+            </div>
+          </div>
+          <div class="pick-block">
+            <div class="pick-label">DIFFICULTY</div>
+            <div class="mode-row wrap" id="diff-row">
+              <button type="button" class="mode" data-diff="easy">EASY</button>
+              <button type="button" class="mode on" data-diff="normal">NORMAL</button>
+              <button type="button" class="mode" data-diff="hard">HARD</button>
+              <button type="button" class="mode" data-diff="insane">INSANE</button>
+            </div>
+          </div>
+          <div class="pick-block">
+            <div class="pick-label">MAP</div>
+            <div class="mode-row wrap" id="map-row">
+              <button type="button" class="mode on" data-map="warehouse">SUNSET RANGE</button>
+              <button type="button" class="mode" data-map="yard">PINE RIDGE</button>
+              <button type="button" class="mode" data-map="labs">HARBOR QUAY</button>
+              <button type="button" class="mode" data-map="market">NIGHT BAZAAR</button>
+              <button type="button" class="mode" data-map="vault">GOLD VAULT</button>
+              <button type="button" class="mode" data-map="clinic">RED CLINIC</button>
+            </div>
+          </div>
+        </div>
+        <div class="help">
+          <div><kbd>WASD</kbd> move <kbd>SHIFT</kbd> sprint <kbd>SPACE</kbd> jump <kbd>C</kbd> crouch</div>
+          <div><kbd>LMB</kbd> fire <kbd>RMB</kbd>/<kbd>E</kbd> aim <kbd>P</kbd> look / crosshair <kbd>Y</kbd> menu <kbd>TAB</kbd> board</div>
+          <div>Campaign: steal bags or save a person. DEPLOY SOLO, or CO-OP · 3 PLAYERS so friends join the same op from the lobby.</div>
+          <div>ONLINE deathmatch rooms are 3 players max. Co-op campaign rooms are also 3 max. Same link, then JOIN.</div>
+          <div>CTF: grab the enemy flag and run it to your pad. Hill: hold the gold ring. Team modes: pick ALPHA or BRAVO.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script type="module" src="js/game.js"></script>
+  <script>
+    window.addEventListener("error", (ev) => {
+      const tag = document.querySelector("#menu .tag");
+      if (!tag || tag.dataset.err) return;
+      const src = String(ev.filename || ev.message || "");
+      if (!/game\.js|humans\.js|net\.js|GLTFLoader|three\.module/.test(src) && !ev.message) return;
+      tag.dataset.err = "1";
+      tag.textContent = "Menu should still work — if buttons do nothing, hard-refresh. " + (ev.message || "");
+    });
+  </script>
+</body>
+</html>
